@@ -74,7 +74,9 @@ a {
   gap: 16px;
 }
 
-.brand {
+.brand,
+.home-brand,
+.header .home-brand {
   color: var(--white);
   font-family: var(--brand-font);
   font-size: clamp(18px, 2vw, 25px);
@@ -84,6 +86,7 @@ a {
 }
 
 .brand span,
+.home-brand span,
 h1 span {
   color: var(--aqua);
   animation: xGlow 3.4s ease-in-out 1.2s infinite;

@@ -1,6 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Orbitron:wght@400;500;600&display=swap");
 
-:root {
+.login-view,
+.app-view {
   --brand-font: "Orbitron", "Segoe UI", sans-serif;
   --ui-font: "Inter", "Segoe UI", sans-serif;
   --ink: #16201f;
@@ -21,9 +22,8 @@
   box-sizing: border-box;
 }
 
-body {
-  min-height: 100vh;
-  margin: 0;
+.login-view,
+.app-view {
   color: var(--ink);
   background: var(--page);
   font-family: var(--ui-font);
