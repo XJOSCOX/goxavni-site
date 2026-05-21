@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model BookkeeperUser {
+  id                String          @id @db.Uuid
+  name              String
+  email             String          @unique
+  role              Role
+  active            Boolean         @default(true)
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdMembers    Member[]        @relation("MemberCreator")
+  createdTimesheets Timesheet[]     @relation("TimesheetCreator")
+  approvedTimesheets Timesheet[]    @relation("TimesheetApprover")
+  createdPayments   MemberPayment[] @relation("PaymentCreator")
+  transactions      Transaction[]
+  usedSignupCodes   UsedSignupCode[]
+
+  @@map("users")
+}
+
+model UsedSignupCode {
+  codeHash String         @id @map("code_hash")
+  role     Role
+  usedBy   String         @map("used_by") @db.Uuid
+  usedAt   DateTime       @default(now()) @map("used_at") @db.Timestamptz(6)
+  user     BookkeeperUser @relation(fields: [usedBy], references: [id])
+
+  @@map("used_signup_codes")
+}
+
+model Account {
+  id                    BigInt          @id @default(autoincrement())
+  code                  String          @unique
+  name                  String
+  type                  AccountType
+  active                Boolean         @default(true)
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  paidTransactions      Transaction[]   @relation("PaymentAccount")
+  categorizedTransactions Transaction[] @relation("CategoryAccount")
+  memberPaymentSources  MemberPayment[] @relation("MemberPaymentSource")
+  memberPaymentExpenses MemberPayment[] @relation("MemberPaymentExpense")
+
+  @@map("accounts")
+}
+
+model Transaction {
+  id                BigInt         @id @default(autoincrement())
+  occurredOn        DateTime       @map("occurred_on") @db.Date
+  type              TransactionType
+  party             String
+  description       String
+  reference         String?
+  paymentAccountId  BigInt         @map("payment_account_id")
+  categoryAccountId BigInt         @map("category_account_id")
+  amountCents       Int            @map("amount_cents")
+  createdBy         String         @map("created_by") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  paymentAccount    Account        @relation("PaymentAccount", fields: [paymentAccountId], references: [id])
+  categoryAccount   Account        @relation("CategoryAccount", fields: [categoryAccountId], references: [id])
+  creator           BookkeeperUser @relation(fields: [createdBy], references: [id])
+  memberPayments    MemberPayment[]
+
+  @@map("transactions")
+}
+
+model Member {
+  id              BigInt          @id @default(autoincrement())
+  userId          String?         @map("user_id") @db.Uuid
+  name            String
+  email           String?
+  title           String?
+  hourlyRateCents Int             @default(0) @map("hourly_rate_cents")
+  active          Boolean         @default(true)
+  createdBy       String?         @map("created_by") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  creator         BookkeeperUser? @relation("MemberCreator", fields: [createdBy], references: [id])
+  timesheets      Timesheet[]
+  payments        MemberPayment[]
+
+  @@map("members")
+}
+
+model Timesheet {
+  id              BigInt          @id @default(autoincrement())
+  memberId        BigInt          @map("member_id")
+  workDate        DateTime        @map("work_date") @db.Date
+  hours           Decimal         @db.Decimal(6, 2)
+  hourlyRateCents Int             @default(0) @map("hourly_rate_cents")
+  project         String?
+  notes           String?
+  status          TimesheetStatus @default(submitted)
+  createdBy       String          @map("created_by") @db.Uuid
+  approvedBy      String?         @map("approved_by") @db.Uuid
+  approvedAt      DateTime?       @map("approved_at") @db.Timestamptz(6)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  member          Member          @relation(fields: [memberId], references: [id])
+  creator         BookkeeperUser  @relation("TimesheetCreator", fields: [createdBy], references: [id])
+  approver        BookkeeperUser? @relation("TimesheetApprover", fields: [approvedBy], references: [id])
+
+  @@map("timesheets")
+}
+
+model MemberPayment {
+  id                BigInt         @id @default(autoincrement())
+  memberId          BigInt         @map("member_id")
+  transactionId     BigInt?        @map("transaction_id")
+  paidOn            DateTime       @map("paid_on") @db.Date
+  amountCents       Int            @map("amount_cents")
+  paymentAccountId  BigInt         @map("payment_account_id")
+  expenseAccountId  BigInt         @map("expense_account_id")
+  periodStart       DateTime?      @map("period_start") @db.Date
+  periodEnd         DateTime?      @map("period_end") @db.Date
+  reference         String?
+  notes             String?
+  createdBy         String         @map("created_by") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  member            Member         @relation(fields: [memberId], references: [id])
+  transaction       Transaction?   @relation(fields: [transactionId], references: [id])
+  paymentAccount    Account        @relation("MemberPaymentSource", fields: [paymentAccountId], references: [id])
+  expenseAccount    Account        @relation("MemberPaymentExpense", fields: [expenseAccountId], references: [id])
+  creator           BookkeeperUser @relation("PaymentCreator", fields: [createdBy], references: [id])
+
+  @@map("member_payments")
+}
+
+enum Role {
+  owner
+  manager
+  member
+}
+
+enum AccountType {
+  asset
+  liability
+  equity
+  revenue
+  expense
+}
+
+enum TransactionType {
+  income
+  expense
+}
+
+enum TimesheetStatus {
+  submitted
+  approved
+  paid
+}

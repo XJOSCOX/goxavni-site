@@ -68,6 +68,12 @@ a {
   font-weight: 500;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .brand {
   color: var(--white);
   font-family: var(--brand-font);
@@ -83,8 +89,26 @@ h1 span {
   animation: xGlow 3.4s ease-in-out 1.2s infinite;
 }
 
-.header > a:not(.brand):hover {
+.header-actions a:hover {
   color: var(--white);
+}
+
+.login-link {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 16px;
+  color: var(--white);
+  background: rgba(247, 255, 253, 0.06);
+  backdrop-filter: blur(10px);
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.login-link:hover {
+  border-color: rgba(122, 242, 229, 0.58);
+  background: rgba(122, 242, 229, 0.14);
 }
 
 .hero {
@@ -299,6 +323,12 @@ h1 {
     flex-direction: column;
     justify-content: center;
     gap: 12px;
+  }
+
+  .header-actions {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .hero-inner {
