@@ -19,6 +19,7 @@ model BookkeeperUser {
   createdTimesheets Timesheet[]     @relation("TimesheetCreator")
   approvedTimesheets Timesheet[]    @relation("TimesheetApprover")
   createdPayments   MemberPayment[] @relation("PaymentCreator")
+  subscriptions      Subscription[]
   transactions      Transaction[]
   usedSignupCodes   UsedSignupCode[]
 
@@ -46,6 +47,8 @@ model Account {
   categorizedTransactions Transaction[] @relation("CategoryAccount")
   memberPaymentSources  MemberPayment[] @relation("MemberPaymentSource")
   memberPaymentExpenses MemberPayment[] @relation("MemberPaymentExpense")
+  subscriptionSources   Subscription[]  @relation("SubscriptionSource")
+  subscriptionExpenses  Subscription[]  @relation("SubscriptionExpense")
 
   @@map("accounts")
 }
@@ -130,6 +133,30 @@ model MemberPayment {
   @@map("member_payments")
 }
 
+model Subscription {
+  id               BigInt         @id @default(autoincrement())
+  vendor           String
+  description      String
+  amountCents      Int            @map("amount_cents")
+  paymentAccountId BigInt         @map("payment_account_id")
+  expenseAccountId BigInt         @map("expense_account_id")
+  frequencyEvery   Int            @default(1) @map("frequency_every")
+  frequencyUnit    RecurrenceUnit @map("frequency_unit")
+  startOn          DateTime       @map("start_on") @db.Date
+  nextDueOn        DateTime       @map("next_due_on") @db.Date
+  endOn            DateTime?      @map("end_on") @db.Date
+  reference        String?
+  notes            String?
+  active           Boolean        @default(true)
+  createdBy        String         @map("created_by") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  paymentAccount   Account        @relation("SubscriptionSource", fields: [paymentAccountId], references: [id])
+  expenseAccount   Account        @relation("SubscriptionExpense", fields: [expenseAccountId], references: [id])
+  creator          BookkeeperUser @relation(fields: [createdBy], references: [id])
+
+  @@map("subscriptions")
+}
+
 enum Role {
   owner
   manager
@@ -153,4 +180,11 @@ enum TimesheetStatus {
   submitted
   approved
   paid
+}
+
+enum RecurrenceUnit {
+  day
+  week
+  month
+  year
 }

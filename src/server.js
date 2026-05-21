@@ -16,6 +16,7 @@ const sessionMaxAgeMs = 1000 * 60 * 30;
 const roles = ["owner", "manager", "member"];
 const accountTypes = ["asset", "liability", "equity", "revenue", "expense"];
 const transactionTypes = ["income", "expense"];
+const recurrenceUnits = ["day", "week", "month", "year"];
 const sessionSecret = process.env.SESSION_SECRET || "local-dev-change-this-secret";
 const hasSupabaseConfig = Boolean(
   process.env.SUPABASE_URL &&
@@ -272,6 +273,50 @@ function validateMemberPayment(body) {
       periodEnd: /^\d{4}-\d{2}-\d{2}$/.test(periodEnd) ? periodEnd : null,
       reference: reference || null,
       notes: notes || null
+    }
+  };
+}
+
+function validateSubscription(body) {
+  const vendor = String(body.vendor || "").trim();
+  const description = String(body.description || "").trim();
+  const amountCents = centsFromInput(body.amount);
+  const paymentAccountId = Number(body.paymentAccountId);
+  const expenseAccountId = Number(body.expenseAccountId);
+  const frequencyEvery = Number(body.frequencyEvery || 1);
+  const frequencyUnit = String(body.frequencyUnit || "").trim();
+  const startOn = String(body.startOn || "").trim();
+  const nextDueOn = String(body.nextDueOn || "").trim();
+  const endOn = String(body.endOn || "").trim();
+  const reference = String(body.reference || "").trim();
+  const notes = String(body.notes || "").trim();
+  const active = parseBoolean(body.active, true);
+
+  if (!vendor) return { error: "Vendor is required." };
+  if (!description) return { error: "Description is required." };
+  if (!amountCents) return { error: "Amount must be greater than zero." };
+  if (!Number.isFinite(paymentAccountId) || paymentAccountId <= 0) return { error: "Payment account is required." };
+  if (!Number.isFinite(expenseAccountId) || expenseAccountId <= 0) return { error: "Expense account is required." };
+  if (!Number.isInteger(frequencyEvery) || frequencyEvery <= 0 || frequencyEvery > 365) return { error: "Repeat every must be between 1 and 365." };
+  if (!recurrenceUnits.includes(frequencyUnit)) return { error: "Choose day, week, month, or year." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startOn)) return { error: "Enter a valid start date." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDueOn)) return { error: "Enter a valid next due date." };
+
+  return {
+    value: {
+      vendor,
+      description,
+      amountCents,
+      paymentAccountId,
+      expenseAccountId,
+      frequencyEvery,
+      frequencyUnit,
+      startOn,
+      nextDueOn,
+      endOn: /^\d{4}-\d{2}-\d{2}$/.test(endOn) ? endOn : null,
+      reference: reference || null,
+      notes: notes || null,
+      active
     }
   };
 }
@@ -1029,6 +1074,101 @@ class SupabaseStore {
     return data.id;
   }
 
+  async listSubscriptions() {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("subscriptions")
+      .select("id, vendor, description, amount_cents, payment_account_id, expense_account_id, frequency_every, frequency_unit, start_on, next_due_on, end_on, reference, notes, active, payment:payment_account_id(name), expense:expense_account_id(name)")
+      .order("active", { ascending: false })
+      .order("next_due_on", { ascending: true })
+      .order("vendor");
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data.map((subscription) => ({
+      id: subscription.id,
+      vendor: subscription.vendor,
+      description: subscription.description,
+      amountCents: subscription.amount_cents,
+      amount: formatMoney(subscription.amount_cents),
+      paymentAccountId: subscription.payment_account_id,
+      expenseAccountId: subscription.expense_account_id,
+      frequencyEvery: subscription.frequency_every,
+      frequencyUnit: subscription.frequency_unit,
+      startOn: subscription.start_on,
+      nextDueOn: subscription.next_due_on,
+      endOn: subscription.end_on,
+      reference: subscription.reference,
+      notes: subscription.notes,
+      active: subscription.active,
+      paymentAccount: subscription.payment?.name || "",
+      expenseAccount: subscription.expense?.name || ""
+    }));
+  }
+
+  async validateSubscriptionAccounts(subscription) {
+    const paymentAccount = await this.getAccount(subscription.paymentAccountId);
+    const expenseAccount = await this.getAccount(subscription.expenseAccountId);
+    if (!paymentAccount || paymentAccount.type !== "asset" || !paymentAccount.active) {
+      throw Object.assign(new Error("Payment account must be an active asset account."), { status: 400 });
+    }
+    if (!expenseAccount || expenseAccount.type !== "expense" || !expenseAccount.active) {
+      throw Object.assign(new Error("Expense category must be an active expense account."), { status: 400 });
+    }
+  }
+
+  async createSubscription(subscription, userId) {
+    this.ensureConfigured();
+    await this.validateSubscriptionAccounts(subscription);
+    const { data, error } = await this.admin
+      .from("subscriptions")
+      .insert({
+        vendor: subscription.vendor,
+        description: subscription.description,
+        amount_cents: subscription.amountCents,
+        payment_account_id: subscription.paymentAccountId,
+        expense_account_id: subscription.expenseAccountId,
+        frequency_every: subscription.frequencyEvery,
+        frequency_unit: subscription.frequencyUnit,
+        start_on: subscription.startOn,
+        next_due_on: subscription.nextDueOn,
+        end_on: subscription.endOn,
+        reference: subscription.reference,
+        notes: subscription.notes,
+        active: subscription.active,
+        created_by: userId
+      })
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
+  async updateSubscription(id, subscription) {
+    this.ensureConfigured();
+    await this.validateSubscriptionAccounts(subscription);
+    const { data, error } = await this.admin
+      .from("subscriptions")
+      .update({
+        vendor: subscription.vendor,
+        description: subscription.description,
+        amount_cents: subscription.amountCents,
+        payment_account_id: subscription.paymentAccountId,
+        expense_account_id: subscription.expenseAccountId,
+        frequency_every: subscription.frequencyEvery,
+        frequency_unit: subscription.frequencyUnit,
+        start_on: subscription.startOn,
+        next_due_on: subscription.nextDueOn,
+        end_on: subscription.endOn,
+        reference: subscription.reference,
+        notes: subscription.notes,
+        active: subscription.active
+      })
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
   async profitLossReport({ from, to } = {}) {
     this.ensureConfigured();
     let query = this.admin
@@ -1356,6 +1496,36 @@ app.patch("/api/member-payments/:id", requireAuth, requireRole(["owner"]), async
   }
 });
 
+app.get("/api/subscriptions", requireAuth, requireRole(["owner", "manager"]), async (_req, res, next) => {
+  try {
+    res.json({ subscriptions: await store.listSubscriptions() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/subscriptions", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+  try {
+    const parsed = validateSubscription(req.body);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    const id = await store.createSubscription(parsed.value, req.user.id);
+    return res.status(201).json({ id });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch("/api/subscriptions/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+  try {
+    const parsed = validateSubscription(req.body);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    const id = await store.updateSubscription(Number(req.params.id), parsed.value);
+    return res.json({ id });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get("/api/reports/profit-loss", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
   try {
     res.json({ report: await store.profitLossReport(dateRangeFromQuery(req.query)) });
@@ -1421,6 +1591,32 @@ app.get("/api/reports/member-payments.csv", requireAuth, requireRole(["owner", "
         payment.periodEnd || "",
         payment.reference || "",
         payment.notes || ""
+      ])
+    ]);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/reports/subscriptions.csv", requireAuth, requireRole(["owner", "manager"]), async (_req, res, next) => {
+  try {
+    const subscriptions = await store.listSubscriptions();
+    sendCsv(res, "goxavni-subscriptions.csv", [
+      ["Vendor", "Description", "Amount", "Expense Account", "Payment Account", "Every", "Unit", "Start", "Next Due", "End", "Status", "Reference", "Notes"],
+      ...subscriptions.map((subscription) => [
+        subscription.vendor,
+        subscription.description,
+        subscription.amount,
+        subscription.expenseAccount,
+        subscription.paymentAccount,
+        subscription.frequencyEvery,
+        subscription.frequencyUnit,
+        subscription.startOn,
+        subscription.nextDueOn,
+        subscription.endOn || "",
+        subscription.active ? "Active" : "Inactive",
+        subscription.reference || "",
+        subscription.notes || ""
       ])
     ]);
   } catch (error) {

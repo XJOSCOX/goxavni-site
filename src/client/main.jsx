@@ -11,6 +11,7 @@ import { Dashboard } from "./views/Dashboard.jsx";
 import { Members } from "./views/Members.jsx";
 import { Payments } from "./views/Payments.jsx";
 import { Reports } from "./views/Reports.jsx";
+import { Subscriptions } from "./views/Subscriptions.jsx";
 import { Timesheets } from "./views/Timesheets.jsx";
 import { Transactions } from "./views/Transactions.jsx";
 import { Users } from "./views/Users.jsx";
@@ -34,6 +35,7 @@ function Bookkeeper() {
     members: [],
     timesheets: [],
     payments: [],
+    subscriptions: [],
     users: [],
     report: { income: 0, expenses: 0, net: 0, categories: [] }
   });
@@ -70,17 +72,20 @@ function Bookkeeper() {
       members: members.members,
       timesheets: timesheets.timesheets,
       payments: [],
+      subscriptions: [],
       users: [],
       report: { income: 0, expenses: 0, net: 0, categories: [] }
     };
     if (["owner", "manager"].includes(currentUser?.role)) {
-      const [users, payments, report] = await Promise.all([
+      const [users, payments, subscriptions, report] = await Promise.all([
         api("/api/users"),
         api("/api/member-payments"),
+        api("/api/subscriptions"),
         api("/api/reports/profit-loss")
       ]);
       next.users = users.users;
       next.payments = payments.payments;
+      next.subscriptions = subscriptions.subscriptions;
       next.report = report.report;
     }
     setData(next);
@@ -179,6 +184,7 @@ function Bookkeeper() {
     ["members", "Members", true],
     ["timesheets", "Timesheets", true],
     ["payments", "Payments", canManage],
+    ["subscriptions", "Subscriptions", canManage],
     ["reports", "Reports", canManage],
     ["accounts", "Accounts", true],
     ["users", "Users", canManage]
@@ -215,6 +221,7 @@ function Bookkeeper() {
         {view === "members" && <Members data={data} canManage={canManage} {...editTools} />}
         {view === "timesheets" && <Timesheets data={data} activeMembers={activeMembers} canManage={canManage} {...editTools} />}
         {view === "payments" && <Payments data={data} activeMembers={activeMembers} assetAccounts={assetAccounts} expenseAccounts={expenseAccounts} canOwn={canOwn} {...editTools} />}
+        {view === "subscriptions" && <Subscriptions data={data} assetAccounts={assetAccounts} expenseAccounts={expenseAccounts} {...editTools} />}
         {view === "reports" && <Reports data={data} setData={setData} />}
         {view === "accounts" && <Accounts data={data} canOwn={canOwn} {...editTools} />}
         {view === "users" && <Users user={user} data={data} roleOptions={roleOptions} {...editTools} />}
