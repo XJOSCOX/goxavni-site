@@ -1,6 +1,6 @@
 import React from "react";
 import { RefreshCw } from "lucide-react";
-import { api, money } from "../api.js";
+import { api, messageForError, money } from "../api.js";
 import { Metric, Panel, Table } from "../components.jsx";
 
 function insightValue(insight) {
@@ -25,7 +25,7 @@ export function Smart({ data, setData, setMessage }) {
         <Metric label="Waiting timesheets" value={smart.metrics.pendingTimesheets} />
       </div>
 
-      <Panel title="Smart Signals" action={<button className="ghost" type="button" onClick={() => refresh().catch((error) => setMessage(error.message))}><RefreshCw size={16} /> Refresh</button>}>
+      <Panel title="Smart Signals" action={<button className="ghost" type="button" onClick={() => refresh().catch((error) => setMessage(messageForError(error)))}><RefreshCw size={16} /> Refresh</button>}>
         <div className="smart-grid">
           {smart.insights.length ? smart.insights.map((insight) => (
             <article className={`smart-card tone-${insight.tone}`} key={insight.title}>

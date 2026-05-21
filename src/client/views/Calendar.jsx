@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { api, money } from "../api.js";
+import { api, messageForError, money } from "../api.js";
 import { Input, Panel, Table } from "../components.jsx";
 
 export function Calendar({ data, setData, setMessage }) {
@@ -26,7 +26,7 @@ export function Calendar({ data, setData, setMessage }) {
   return (
     <section className="view">
       <Panel title="Calendar Range">
-        <form className="form-grid compact" onSubmit={(event) => loadCalendar(event).catch((error) => setMessage(error.message))}>
+        <form className="form-grid compact" onSubmit={(event) => loadCalendar(event).catch((error) => setMessage(messageForError(error)))}>
           <Input name="from" label="From" type="date" value={range.from} onChange={(event) => setRange((current) => ({ ...current, from: event.target.value }))} />
           <Input name="to" label="To" type="date" value={range.to} onChange={(event) => setRange((current) => ({ ...current, to: event.target.value }))} />
           <div className="form-actions"><button type="submit"><RefreshCw size={16} /> Refresh</button></div>

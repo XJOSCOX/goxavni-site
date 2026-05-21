@@ -1,6 +1,38 @@
 import React, { useEffect, useState } from "react";
 import { Save, X } from "lucide-react";
 
+export class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, info) {
+    console.error(error, info);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <main className="app-view error-view">
+          <section className="workspace">
+            <div className="error-panel">
+              <h1>Something broke on this page.</h1>
+              <p>Please refresh the app and try again. If it keeps happening, the browser console will have the technical detail.</p>
+              <button type="button" onClick={() => window.location.reload()}>Refresh</button>
+            </div>
+          </section>
+        </main>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function Table({ columns, rows, empty }) {
   return (
     <div className="table-wrap">

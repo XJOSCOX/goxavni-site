@@ -3,8 +3,9 @@ import { createRoot } from "react-dom/client";
 import { LogOut } from "lucide-react";
 import "../../styles.css";
 import "./bookkeeper.css";
-import { api, payload } from "./api.js";
+import { api, messageForError, payload } from "./api.js";
 import { Auth } from "./Auth.jsx";
+import { ErrorBoundary } from "./components.jsx";
 import { Home } from "./Home.jsx";
 import { Accounts } from "./views/Accounts.jsx";
 import { Calendar } from "./views/Calendar.jsx";
@@ -30,6 +31,8 @@ function Bookkeeper() {
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState(null);
   const [idleWarning, setIdleWarning] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [data, setData] = useState({
     accounts: [],
     transactions: [],
@@ -76,44 +79,56 @@ function Bookkeeper() {
   }
 
   async function loadCore(currentUser = user) {
-    const [accounts, transactions, summary, members, timesheets, reminders, calendar, smart] = await Promise.all([
-      api("/api/accounts"),
-      api("/api/transactions"),
-      api("/api/summary"),
-      api("/api/members"),
-      api("/api/timesheets"),
-      api("/api/reminders"),
-      api("/api/calendar"),
-      api("/api/smart")
-    ]);
-    const next = {
-      accounts: accounts.accounts,
-      transactions: transactions.transactions,
-      summary: summary.summary,
-      categories: summary.categories,
-      members: members.members,
-      timesheets: timesheets.timesheets,
-      payments: [],
-      subscriptions: [],
-      reminders: reminders.reminders,
-      calendar: calendar.calendar,
-      smart: smart.smart,
-      users: [],
-      report: { income: 0, expenses: 0, net: 0, categories: [] }
-    };
-    if (["owner", "manager"].includes(currentUser?.role)) {
-      const [users, payments, subscriptions, report] = await Promise.all([
-        api("/api/users"),
-        api("/api/member-payments"),
-        api("/api/subscriptions"),
-        api("/api/reports/profit-loss")
+    setLoading(true);
+    setLoadError("");
+    try {
+      const [accounts, transactions, summary, members, timesheets, reminders, calendar, smart] = await Promise.all([
+        api("/api/accounts"),
+        api("/api/transactions"),
+        api("/api/summary"),
+        api("/api/members"),
+        api("/api/timesheets"),
+        api("/api/reminders"),
+        api("/api/calendar"),
+        api("/api/smart")
       ]);
-      next.users = users.users;
-      next.payments = payments.payments;
-      next.subscriptions = subscriptions.subscriptions;
-      next.report = report.report;
+      const next = {
+        accounts: accounts.accounts,
+        transactions: transactions.transactions,
+        summary: summary.summary,
+        categories: summary.categories,
+        members: members.members,
+        timesheets: timesheets.timesheets,
+        payments: [],
+        subscriptions: [],
+        reminders: reminders.reminders,
+        calendar: calendar.calendar,
+        smart: smart.smart,
+        users: [],
+        report: { income: 0, expenses: 0, net: 0, categories: [] }
+      };
+      if (["owner", "manager"].includes(currentUser?.role)) {
+        const [users, payments, subscriptions, report] = await Promise.all([
+          api("/api/users"),
+          api("/api/member-payments"),
+          api("/api/subscriptions"),
+          api("/api/reports/profit-loss")
+        ]);
+        next.users = users.users;
+        next.payments = payments.payments;
+        next.subscriptions = subscriptions.subscriptions;
+        next.report = report.report;
+      }
+      setData(next);
+    } catch (error) {
+      const text = messageForError(error);
+      setLoadError(text);
+      setMessage(text);
+      if (error.status === 401) setUser(null);
+      throw error;
+    } finally {
+      setLoading(false);
     }
-    setData(next);
   }
 
   async function logout(reason = "") {
@@ -130,13 +145,17 @@ function Bookkeeper() {
 
   async function submit(endpoint, form, success) {
     setMessage("");
-    await api(endpoint, {
-      method: "POST",
-      body: JSON.stringify(payload(form))
-    });
-    form.reset();
-    await loadCore();
-    flash(success);
+    try {
+      await api(endpoint, {
+        method: "POST",
+        body: JSON.stringify(payload(form))
+      });
+      form.reset();
+      await loadCore();
+      flash(success);
+    } catch (error) {
+      throw new Error(messageForError(error));
+    }
   }
 
   function startEdit(kind, id, values) {
@@ -158,13 +177,17 @@ function Bookkeeper() {
 
   async function saveEdit(endpoint, success) {
     setMessage("");
-    await api(endpoint, {
-      method: "PATCH",
-      body: JSON.stringify(editing.values)
-    });
-    setEditing(null);
-    await loadCore();
-    flash(success);
+    try {
+      await api(endpoint, {
+        method: "PATCH",
+        body: JSON.stringify(editing.values)
+      });
+      setEditing(null);
+      await loadCore();
+      flash(success);
+    } catch (error) {
+      throw new Error(messageForError(error));
+    }
   }
 
   useEffect(() => {
@@ -172,7 +195,7 @@ function Bookkeeper() {
       .then((result) => {
         setUser(result.user);
         setProvider(result.provider || "supabase");
-        if (result.user) loadCore(result.user).catch((error) => setMessage(error.message));
+        if (result.user) loadCore(result.user).catch(() => {});
       })
       .catch(() => setUser(null));
   }, []);
@@ -199,7 +222,7 @@ function Bookkeeper() {
   }, [user]);
 
   if (!user) {
-    return <Auth systemMessage={message} onAuth={(nextUser, nextProvider) => { setMessage(""); setUser(nextUser); setProvider(nextProvider); loadCore(nextUser).catch((error) => setMessage(error.message)); }} />;
+    return <Auth systemMessage={message} onAuth={(nextUser, nextProvider) => { setMessage(""); setUser(nextUser); setProvider(nextProvider); loadCore(nextUser).catch(() => {}); }} />;
   }
 
   const editTools = { editing, isEditing, setEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage };
@@ -243,6 +266,14 @@ function Bookkeeper() {
 
         {notice && <div className="notice" role="status">{notice}</div>}
         {message && <div className="notice error" role="alert">{message}</div>}
+        {loading && <div className="notice neutral" role="status">Loading latest bookkeeping data...</div>}
+        {loadError && (
+          <section className="error-panel compact-error" role="alert">
+            <h2>Could not load the latest data.</h2>
+            <p>{loadError}</p>
+            <button type="button" onClick={() => loadCore().catch(() => {})}>Try again</button>
+          </section>
+        )}
 
         {view === "dashboard" && <Dashboard data={data} setView={setView} />}
         {view === "smart" && <Smart data={data} setData={setData} setMessage={setMessage} />}
@@ -253,7 +284,7 @@ function Bookkeeper() {
         {view === "timesheets" && <Timesheets data={data} activeMembers={activeMembers} canManage={canManage} {...editTools} />}
         {view === "payments" && <Payments data={data} activeMembers={activeMembers} assetAccounts={assetAccounts} expenseAccounts={expenseAccounts} canOwn={canOwn} {...editTools} />}
         {view === "subscriptions" && <Subscriptions data={data} assetAccounts={assetAccounts} expenseAccounts={expenseAccounts} {...editTools} />}
-        {view === "reports" && <Reports data={data} setData={setData} />}
+        {view === "reports" && <Reports data={data} setData={setData} setMessage={setMessage} />}
         {view === "accounts" && <Accounts data={data} canOwn={canOwn} {...editTools} />}
         {view === "users" && <Users user={user} data={data} roleOptions={roleOptions} {...editTools} />}
 
@@ -283,4 +314,4 @@ function App() {
   return window.location.pathname.startsWith("/bookkeeper") ? <Bookkeeper /> : <Home />;
 }
 
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(<ErrorBoundary><App /></ErrorBoundary>);

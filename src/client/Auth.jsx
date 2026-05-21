@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { api, payload } from "./api.js";
+import { api, messageForError, payload } from "./api.js";
 
 export function Auth({ onAuth, systemMessage = "" }) {
   const [mode, setMode] = useState("signin");
@@ -16,7 +16,7 @@ export function Auth({ onAuth, systemMessage = "" }) {
       });
       onAuth(data.user, data.provider || "supabase");
     } catch (error) {
-      setMessage(error.message);
+      setMessage(messageForError(error));
     }
   }
 

@@ -1,13 +1,23 @@
 import React from "react";
 import { Download } from "lucide-react";
 import { Input, Metric, Panel, Table } from "../components.jsx";
-import { api, money, payload } from "../api.js";
+import { api, messageForError, money, payload } from "../api.js";
 
-export function Reports({ data, setData }) {
+export function Reports({ data, setData, setMessage }) {
   return (
     <section className="view">
       <Panel title="Reports" action={<div className="report-actions"><a className="ghost link-button" href="/api/reports/transactions.csv"><Download size={15} /> Transactions CSV</a><a className="ghost link-button" href="/api/reports/timesheets.csv"><Download size={15} /> Timesheets CSV</a><a className="ghost link-button" href="/api/reports/member-payments.csv"><Download size={15} /> Payments CSV</a><a className="ghost link-button" href="/api/reports/subscriptions.csv"><Download size={15} /> Subscriptions CSV</a><a className="ghost link-button" href="/api/reports/reminders.csv"><Download size={15} /> Reminders CSV</a></div>}>
-        <form className="form-grid compact" onSubmit={async (event) => { event.preventDefault(); const params = new URLSearchParams(Object.entries(payload(event.currentTarget)).filter((entry) => entry[1])); const result = await api(`/api/reports/profit-loss?${params}`); setData((current) => ({ ...current, report: result.report })); }}>
+        <form className="form-grid compact" onSubmit={async (event) => {
+          event.preventDefault();
+          setMessage("");
+          try {
+            const params = new URLSearchParams(Object.entries(payload(event.currentTarget)).filter((entry) => entry[1]));
+            const result = await api(`/api/reports/profit-loss?${params}`);
+            setData((current) => ({ ...current, report: result.report }));
+          } catch (error) {
+            setMessage(messageForError(error));
+          }
+        }}>
           <Input name="from" label="From" type="date" />
           <Input name="to" label="To" type="date" />
           <div className="form-actions"><button type="submit">Run report</button></div>
