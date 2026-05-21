@@ -2,6 +2,14 @@ export function httpError(status, message, code = "request_failed") {
   return Object.assign(new Error(message), { status, code });
 }
 
+export function sendValidationError(res, message) {
+  return res.status(400).json({
+    error: message,
+    code: "validation_error",
+    requestId: res.locals.requestId
+  });
+}
+
 export function notFound(_req, res) {
   return res.status(404).json({
     error: "API route not found.",

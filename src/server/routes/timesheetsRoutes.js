@@ -1,3 +1,4 @@
+import { sendValidationError } from "../errors.js";
 import { dateRangeFromQuery } from "../utils.js";
 import { validateTimesheet } from "../validators.js";
 
@@ -14,7 +15,7 @@ export function registerTimesheetsRoutes(app, { store, requireAuth, requireRole 
   app.post("/api/timesheets", requireAuth, requireRole(["owner", "manager", "member"]), async (req, res, next) => {
     try {
       const parsed = validateTimesheet(req.body);
-      if (parsed.error) return res.status(400).json({ error: parsed.error });
+      if (parsed.error) return sendValidationError(res, parsed.error);
       const id = await store.createTimesheet(parsed.value, req.user.id);
       return res.status(201).json({ id });
     } catch (error) {
@@ -25,7 +26,7 @@ export function registerTimesheetsRoutes(app, { store, requireAuth, requireRole 
   app.patch("/api/timesheets/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
     try {
       const parsed = validateTimesheet(req.body);
-      if (parsed.error) return res.status(400).json({ error: parsed.error });
+      if (parsed.error) return sendValidationError(res, parsed.error);
       const id = await store.updateTimesheet(Number(req.params.id), parsed.value, req.user.id);
       return res.json({ id });
     } catch (error) {

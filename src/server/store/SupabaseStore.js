@@ -70,6 +70,16 @@ export class SupabaseStore {
     }
   }
 
+  async checkReady() {
+    this.ensureConfigured();
+    const { error } = await this.admin
+      .from("users")
+      .select("id", { count: "exact", head: true })
+      .limit(1);
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return true;
+  }
+
   async currentUser(id) {
     this.ensureConfigured();
     const { data, error } = await this.admin
@@ -142,14 +152,21 @@ export class SupabaseStore {
       .insert(profile)
       .select("id, name, email, role, active, created_at")
       .single();
-    if (profileError) throw new Error(normalizeSupabaseError(profileError));
+    if (profileError) {
+      await this.admin.auth.admin.deleteUser(data.user.id).catch(() => {});
+      throw Object.assign(new Error(normalizeSupabaseError(profileError)), { status: 400 });
+    }
 
     const { error: codeError } = await this.admin.from("used_signup_codes").insert({
       code_hash: signupCodeHash,
       role,
       used_by: data.user.id
     });
-    if (codeError) throw Object.assign(new Error(normalizeSupabaseError(codeError)), { status: 409 });
+    if (codeError) {
+      await this.admin.from("users").delete().eq("id", data.user.id);
+      await this.admin.auth.admin.deleteUser(data.user.id).catch(() => {});
+      throw Object.assign(new Error(normalizeSupabaseError(codeError)), { status: 409 });
+    }
     return user;
   }
 

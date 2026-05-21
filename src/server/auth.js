@@ -59,13 +59,21 @@ export function createRequireAuth(store) {
     try {
       const auth = decodeAuthCookie(req);
       if (!auth?.userId) {
-        return res.status(401).json({ error: "Sign in required." });
+        return res.status(401).json({
+          error: "Sign in required.",
+          code: "auth_required",
+          requestId: res.locals.requestId
+        });
       }
 
       const user = await store.currentUser(auth.userId);
       if (!user) {
         clearAuthCookie(res);
-        return res.status(401).json({ error: "Sign in required." });
+        return res.status(401).json({
+          error: "Sign in required.",
+          code: "auth_required",
+          requestId: res.locals.requestId
+        });
       }
 
       req.user = user;
@@ -80,7 +88,11 @@ export function createRequireAuth(store) {
 export function requireRole(allowedRoles) {
   return (req, res, next) => {
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ error: "Your role does not allow that action." });
+      return res.status(403).json({
+        error: "Your role does not allow that action.",
+        code: "role_forbidden",
+        requestId: res.locals.requestId
+      });
     }
     return next();
   };

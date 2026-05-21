@@ -19,6 +19,9 @@ app.use(
 app.use((req, res, next) => {
   res.locals.requestId = crypto.randomUUID();
   res.setHeader("X-Request-Id", res.locals.requestId);
+  if (req.path.startsWith("/api")) {
+    res.setHeader("Cache-Control", "no-store");
+  }
   next();
 });
 app.use(express.json({ limit: "1mb" }));

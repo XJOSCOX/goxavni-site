@@ -1,3 +1,4 @@
+import { sendValidationError } from "../errors.js";
 import { dateRangeFromQuery } from "../utils.js";
 import { validateMemberPayment } from "../validators.js";
 
@@ -14,7 +15,7 @@ export function registerPaymentsRoutes(app, { store, requireAuth, requireRole })
   app.post("/api/member-payments", requireAuth, requireRole(["owner"]), async (req, res, next) => {
     try {
       const parsed = validateMemberPayment(req.body);
-      if (parsed.error) return res.status(400).json({ error: parsed.error });
+      if (parsed.error) return sendValidationError(res, parsed.error);
       const id = await store.createMemberPayment(parsed.value, req.user.id);
       return res.status(201).json({ id });
     } catch (error) {
@@ -25,7 +26,7 @@ export function registerPaymentsRoutes(app, { store, requireAuth, requireRole })
   app.patch("/api/member-payments/:id", requireAuth, requireRole(["owner"]), async (req, res, next) => {
     try {
       const parsed = validateMemberPayment(req.body);
-      if (parsed.error) return res.status(400).json({ error: parsed.error });
+      if (parsed.error) return sendValidationError(res, parsed.error);
       const id = await store.updateMemberPayment(Number(req.params.id), parsed.value);
       return res.json({ id });
     } catch (error) {
