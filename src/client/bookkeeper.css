@@ -331,6 +331,12 @@ select {
   font-weight: 700;
 }
 
+.notice.error {
+  border-color: #e5b8b8;
+  color: var(--danger);
+  background: #fff1f1;
+}
+
 .view {
   display: grid;
   gap: 18px;
@@ -491,6 +497,76 @@ td {
   display: flex;
   align-items: end;
   gap: 12px;
+}
+
+.row-actions,
+.inline-stack,
+.modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-stack {
+  flex-wrap: wrap;
+  min-width: 360px;
+}
+
+.edit-field {
+  min-width: 120px;
+  min-height: 36px;
+  font-size: 13px;
+}
+
+.icon-button {
+  width: 38px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.bookkeeper-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(7, 22, 21, 0.52);
+}
+
+.session-modal {
+  width: min(420px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 22px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+}
+
+.session-modal h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+}
+
+.session-modal p {
+  margin: 0 0 18px;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .report-actions {

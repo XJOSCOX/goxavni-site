@@ -12,6 +12,7 @@ const rootDir = path.resolve(__dirname, "..");
 const distDir = path.join(rootDir, "dist");
 const port = Number(process.env.PORT || 3000);
 const authCookieName = "goxavni_bookkeeper";
+const sessionMaxAgeMs = 1000 * 60 * 30;
 const roles = ["owner", "manager", "member"];
 const accountTypes = ["asset", "liability", "equity", "revenue", "expense"];
 const transactionTypes = ["income", "expense"];
@@ -88,7 +89,7 @@ function setAuthCookie(res, userId) {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 1000 * 60 * 60 * 8
+    maxAge: sessionMaxAgeMs
   });
 }
 
@@ -166,12 +167,20 @@ function validateAccount(body) {
   const code = String(body.code || "").trim();
   const name = String(body.name || "").trim();
   const type = String(body.type || "").trim();
+  const active = parseBoolean(body.active, true);
 
   if (!code || !name || !accountTypes.includes(type)) {
     return { error: "Account code, name, and type are required." };
   }
 
-  return { value: { code, name, type } };
+  return { value: { code, name, type, active } };
+}
+
+function parseBoolean(value, fallback = false) {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === "1" || value === "on") return true;
+  if (value === "false" || value === "0" || value === "") return false;
+  return fallback;
 }
 
 function dateRangeFromQuery(query) {
@@ -202,9 +211,10 @@ function validateMember(body) {
   const title = String(body.title || "").trim();
   const hourlyRateCents = centsFromInput(body.hourlyRate || 0) || 0;
   const userId = String(body.userId || "").trim() || null;
+  const active = parseBoolean(body.active, true);
 
   if (!name) return { error: "Member name is required." };
-  return { value: { name, email: email || null, title: title || null, hourlyRateCents, userId } };
+  return { value: { name, email: email || null, title: title || null, hourlyRateCents, userId, active } };
 }
 
 function validateTimesheet(body) {
@@ -214,10 +224,12 @@ function validateTimesheet(body) {
   const hourlyRateCents = centsFromInput(body.hourlyRate || 0) || 0;
   const project = String(body.project || "").trim();
   const notes = String(body.notes || "").trim();
+  const status = String(body.status || "submitted").trim();
 
   if (!Number.isFinite(memberId) || memberId <= 0) return { error: "Member is required." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(workDate)) return { error: "Enter a valid work date." };
   if (!Number.isFinite(hours) || hours <= 0 || hours > 24) return { error: "Hours must be between 0 and 24." };
+  if (!["submitted", "approved", "paid"].includes(status)) return { error: "Choose a valid timesheet status." };
 
   return {
     value: {
@@ -226,7 +238,8 @@ function validateTimesheet(body) {
       hours,
       hourlyRateCents,
       project: project || null,
-      notes: notes || null
+      notes: notes || null,
+      status
     }
   };
 }
@@ -472,6 +485,26 @@ class SupabaseStore {
     return data.id;
   }
 
+  async updateAccount(id, account) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("accounts")
+      .update({
+        code: account.code,
+        name: account.name,
+        type: account.type,
+        active: account.active
+      })
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (error) {
+      const message = normalizeSupabaseError(error);
+      throw Object.assign(new Error(message), { status: error.code === "23505" ? 409 : 400 });
+    }
+    return data.id;
+  }
+
   async listTransactions() {
     this.ensureConfigured();
     const { data, error } = await this.admin
@@ -484,6 +517,8 @@ class SupabaseStore {
         party,
         description,
         reference,
+        payment_account_id,
+        category_account_id,
         amount_cents,
         payment:payment_account_id(name),
         category:category_account_id(name),
@@ -502,6 +537,8 @@ class SupabaseStore {
       party: transaction.party,
       description: transaction.description,
       reference: transaction.reference,
+      paymentAccountId: transaction.payment_account_id,
+      categoryAccountId: transaction.category_account_id,
       amountCents: transaction.amount_cents,
       amount: formatMoney(transaction.amount_cents),
       paymentAccount: transaction.payment?.name || "",
@@ -528,6 +565,27 @@ class SupabaseStore {
       .select("id")
       .single();
     if (error) throw new Error(normalizeSupabaseError(error));
+    return data.id;
+  }
+
+  async updateTransaction(id, tx) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("transactions")
+      .update({
+        occurred_on: tx.occurredOn,
+        type: tx.type,
+        party: tx.party,
+        description: tx.description,
+        reference: tx.reference || null,
+        payment_account_id: tx.paymentAccountId,
+        category_account_id: tx.categoryAccountId,
+        amount_cents: tx.amountCents
+      })
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
     return data.id;
   }
 
@@ -610,6 +668,50 @@ class SupabaseStore {
     return data.user.id;
   }
 
+  async updateUser({ id, name, email, role, active, actorRole, actorId }) {
+    this.ensureConfigured();
+    if (!name || !email || !roles.includes(role)) {
+      throw Object.assign(new Error("Name, email, role, and status are required."), { status: 400 });
+    }
+    if (!canManageRole(actorRole, role)) {
+      throw Object.assign(new Error("Your role cannot assign that user role."), { status: 403 });
+    }
+
+    const current = await this.currentUser(id);
+    if (!current && id === actorId) {
+      throw Object.assign(new Error("You cannot disable your current session."), { status: 400 });
+    }
+    if (actorRole === "manager") {
+      const { data: target, error: targetError } = await this.admin
+        .from("users")
+        .select("role")
+        .eq("id", id)
+        .maybeSingle();
+      if (targetError) throw new Error(normalizeSupabaseError(targetError));
+      if (target?.role !== "member") {
+        throw Object.assign(new Error("Managers can only edit member users."), { status: 403 });
+      }
+    }
+    if (id === actorId && (!active || role !== actorRole)) {
+      throw Object.assign(new Error("You cannot change your own role or disable yourself."), { status: 400 });
+    }
+
+    const { error: authError } = await this.admin.auth.admin.updateUserById(id, {
+      email,
+      user_metadata: { name }
+    });
+    if (authError) throw Object.assign(new Error(authError.message), { status: 400 });
+
+    const { data, error } = await this.admin
+      .from("users")
+      .update({ name, email, role, active })
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
   async listMembers() {
     this.ensureConfigured();
     const { data, error } = await this.admin
@@ -654,6 +756,25 @@ class SupabaseStore {
         hourly_rate_cents: member.hourlyRateCents,
         created_by: userId
       })
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
+  async updateMember(id, member) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("members")
+      .update({
+        user_id: member.userId,
+        name: member.name,
+        email: member.email,
+        title: member.title,
+        hourly_rate_cents: member.hourlyRateCents,
+        active: member.active
+      })
+      .eq("id", id)
       .select("id")
       .single();
     if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
@@ -712,6 +833,40 @@ class SupabaseStore {
     return data.id;
   }
 
+  async updateTimesheet(id, timesheet, userId) {
+    this.ensureConfigured();
+    const member = await this.getMember(timesheet.memberId);
+    if (!member || !member.active) {
+      throw Object.assign(new Error("Choose an active member."), { status: 400 });
+    }
+    const hourlyRateCents = timesheet.hourlyRateCents || member.hourly_rate_cents || 0;
+    const patch = {
+      member_id: timesheet.memberId,
+      work_date: timesheet.workDate,
+      hours: timesheet.hours,
+      hourly_rate_cents: hourlyRateCents,
+      project: timesheet.project,
+      notes: timesheet.notes,
+      status: timesheet.status
+    };
+    if (timesheet.status === "approved") {
+      patch.approved_by = userId;
+      patch.approved_at = new Date().toISOString();
+    }
+    if (timesheet.status === "submitted") {
+      patch.approved_by = null;
+      patch.approved_at = null;
+    }
+    const { data, error } = await this.admin
+      .from("timesheets")
+      .update(patch)
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
   async approveTimesheet(id, userId) {
     this.ensureConfigured();
     const { data, error } = await this.admin
@@ -733,7 +888,7 @@ class SupabaseStore {
     this.ensureConfigured();
     let query = this.admin
       .from("member_payments")
-      .select("id, paid_on, amount_cents, period_start, period_end, reference, notes, member:member_id(name), payment:payment_account_id(name), expense:expense_account_id(name)")
+      .select("id, member_id, transaction_id, paid_on, amount_cents, payment_account_id, expense_account_id, period_start, period_end, reference, notes, member:member_id(name), payment:payment_account_id(name), expense:expense_account_id(name)")
       .order("paid_on", { ascending: false })
       .order("id", { ascending: false })
       .limit(300);
@@ -743,9 +898,13 @@ class SupabaseStore {
     if (error) throw new Error(normalizeSupabaseError(error));
     return data.map((payment) => ({
       id: payment.id,
+      memberId: payment.member_id,
+      transactionId: payment.transaction_id,
       paidOn: payment.paid_on,
       amountCents: payment.amount_cents,
       amount: formatMoney(payment.amount_cents),
+      paymentAccountId: payment.payment_account_id,
+      expenseAccountId: payment.expense_account_id,
       periodStart: payment.period_start,
       periodEnd: payment.period_end,
       reference: payment.reference,
@@ -810,6 +969,66 @@ class SupabaseStore {
     return data.id;
   }
 
+  async updateMemberPayment(id, payment) {
+    this.ensureConfigured();
+    const member = await this.getMember(payment.memberId);
+    if (!member || !member.active) {
+      throw Object.assign(new Error("Choose an active member."), { status: 400 });
+    }
+    const paymentAccount = await this.getAccount(payment.paymentAccountId);
+    const expenseAccount = await this.getAccount(payment.expenseAccountId);
+    if (!paymentAccount || paymentAccount.type !== "asset") {
+      throw Object.assign(new Error("Payment account must be an asset account."), { status: 400 });
+    }
+    if (!expenseAccount || expenseAccount.type !== "expense") {
+      throw Object.assign(new Error("Payment category must be an expense account."), { status: 400 });
+    }
+
+    const { data: current, error: currentError } = await this.admin
+      .from("member_payments")
+      .select("transaction_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (currentError) throw new Error(normalizeSupabaseError(currentError));
+    if (!current) throw Object.assign(new Error("Member payment not found."), { status: 404 });
+
+    if (current.transaction_id) {
+      const { error: transactionError } = await this.admin
+        .from("transactions")
+        .update({
+          occurred_on: payment.paidOn,
+          type: "expense",
+          party: member.name,
+          description: `Member payment - ${member.name}`,
+          reference: payment.reference,
+          payment_account_id: payment.paymentAccountId,
+          category_account_id: payment.expenseAccountId,
+          amount_cents: payment.amountCents
+        })
+        .eq("id", current.transaction_id);
+      if (transactionError) throw Object.assign(new Error(normalizeSupabaseError(transactionError)), { status: 400 });
+    }
+
+    const { data, error } = await this.admin
+      .from("member_payments")
+      .update({
+        member_id: payment.memberId,
+        paid_on: payment.paidOn,
+        amount_cents: payment.amountCents,
+        payment_account_id: payment.paymentAccountId,
+        expense_account_id: payment.expenseAccountId,
+        period_start: payment.periodStart,
+        period_end: payment.periodEnd,
+        reference: payment.reference,
+        notes: payment.notes
+      })
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
   async profitLossReport({ from, to } = {}) {
     this.ensureConfigured();
     let query = this.admin
@@ -868,6 +1087,7 @@ async function requireAuth(req, res, next) {
     }
 
     req.user = user;
+    setAuthCookie(res, user.id);
     return next();
   } catch (error) {
     return next(error);
@@ -891,6 +1111,7 @@ app.get("/api/me", async (req, res, next) => {
   try {
     const auth = decodeAuthCookie(req);
     const user = auth?.userId ? await store.currentUser(auth.userId) : null;
+    if (user) setAuthCookie(res, user.id);
     res.json({ user: publicUser(user), provider: store.provider, configured: store.configured });
   } catch (error) {
     next(error);
@@ -947,6 +1168,17 @@ app.post("/api/accounts", requireAuth, requireRole(["owner"]), async (req, res, 
   }
 });
 
+app.patch("/api/accounts/:id", requireAuth, requireRole(["owner"]), async (req, res, next) => {
+  try {
+    const parsed = validateAccount(req.body);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    const id = await store.updateAccount(Number(req.params.id), parsed.value);
+    return res.json({ id });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get("/api/transactions", requireAuth, async (_req, res, next) => {
   try {
     res.json({ transactions: await store.listTransactions() });
@@ -961,6 +1193,17 @@ app.post("/api/transactions", requireAuth, requireRole(["owner", "manager", "mem
     if (parsed.error) return res.status(400).json({ error: parsed.error });
     const id = await store.createTransaction(parsed.value, req.user.id);
     return res.status(201).json({ id });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch("/api/transactions/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+  try {
+    const parsed = await validateTransaction(req.body, store);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    const id = await store.updateTransaction(Number(req.params.id), parsed.value);
+    return res.json({ id });
   } catch (error) {
     return next(error);
   }
@@ -997,6 +1240,23 @@ app.post("/api/users", requireAuth, requireRole(["owner", "manager"]), async (re
   }
 });
 
+app.patch("/api/users/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+  try {
+    const id = await store.updateUser({
+      id: String(req.params.id || "").trim(),
+      name: String(req.body.name || "").trim(),
+      email: String(req.body.email || "").trim().toLowerCase(),
+      role: String(req.body.role || "").trim(),
+      active: parseBoolean(req.body.active, true),
+      actorRole: req.user.role,
+      actorId: req.user.id
+    });
+    return res.json({ id });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get("/api/members", requireAuth, async (_req, res, next) => {
   try {
     res.json({ members: await store.listMembers() });
@@ -1016,6 +1276,17 @@ app.post("/api/members", requireAuth, requireRole(["owner", "manager"]), async (
   }
 });
 
+app.patch("/api/members/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+  try {
+    const parsed = validateMember(req.body);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    const id = await store.updateMember(Number(req.params.id), parsed.value);
+    return res.json({ id });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get("/api/timesheets", requireAuth, async (req, res, next) => {
   try {
     res.json({ timesheets: await store.listTimesheets(dateRangeFromQuery(req.query)) });
@@ -1030,6 +1301,17 @@ app.post("/api/timesheets", requireAuth, requireRole(["owner", "manager", "membe
     if (parsed.error) return res.status(400).json({ error: parsed.error });
     const id = await store.createTimesheet(parsed.value, req.user.id);
     return res.status(201).json({ id });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch("/api/timesheets/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+  try {
+    const parsed = validateTimesheet(req.body);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    const id = await store.updateTimesheet(Number(req.params.id), parsed.value, req.user.id);
+    return res.json({ id });
   } catch (error) {
     return next(error);
   }
@@ -1058,6 +1340,17 @@ app.post("/api/member-payments", requireAuth, requireRole(["owner"]), async (req
     if (parsed.error) return res.status(400).json({ error: parsed.error });
     const id = await store.createMemberPayment(parsed.value, req.user.id);
     return res.status(201).json({ id });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch("/api/member-payments/:id", requireAuth, requireRole(["owner"]), async (req, res, next) => {
+  try {
+    const parsed = validateMemberPayment(req.body);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    const id = await store.updateMemberPayment(Number(req.params.id), parsed.value);
+    return res.json({ id });
   } catch (error) {
     return next(error);
   }
