@@ -19,7 +19,10 @@ model BookkeeperUser {
   createdTimesheets Timesheet[]     @relation("TimesheetCreator")
   approvedTimesheets Timesheet[]    @relation("TimesheetApprover")
   auditLogs          AuditLog[]
+  contacts           Contact[]
   createdPayments   MemberPayment[] @relation("PaymentCreator")
+  documents          Document[]
+  invoices           Invoice[]
   reminders          Reminder[]
   subscriptions      Subscription[]
   transactions      Transaction[]
@@ -51,6 +54,8 @@ model Account {
   memberPaymentExpenses MemberPayment[] @relation("MemberPaymentExpense")
   subscriptionSources   Subscription[]  @relation("SubscriptionSource")
   subscriptionExpenses  Subscription[]  @relation("SubscriptionExpense")
+  invoiceRevenue        Invoice[]       @relation("InvoiceRevenue")
+  invoicePayments       Invoice[]       @relation("InvoicePayment")
 
   @@map("accounts")
 }
@@ -71,6 +76,7 @@ model Transaction {
   categoryAccount   Account        @relation("CategoryAccount", fields: [categoryAccountId], references: [id])
   creator           BookkeeperUser @relation(fields: [createdBy], references: [id])
   memberPayments    MemberPayment[]
+  invoices          Invoice[]
 
   @@map("transactions")
 }
@@ -159,6 +165,65 @@ model Subscription {
   @@map("subscriptions")
 }
 
+model Contact {
+  id        BigInt         @id @default(autoincrement())
+  type      ContactType
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  notes     String?
+  active    Boolean        @default(true)
+  createdBy String         @map("created_by") @db.Uuid
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  creator   BookkeeperUser @relation(fields: [createdBy], references: [id])
+  invoices  Invoice[]
+
+  @@index([type, active])
+  @@map("contacts")
+}
+
+model Invoice {
+  id               BigInt         @id @default(autoincrement())
+  invoiceNumber    String         @unique @map("invoice_number")
+  customerId       BigInt         @map("customer_id")
+  issueOn          DateTime       @map("issue_on") @db.Date
+  dueOn            DateTime       @map("due_on") @db.Date
+  status           InvoiceStatus  @default(draft)
+  amountCents      Int            @map("amount_cents")
+  revenueAccountId BigInt         @map("revenue_account_id")
+  paymentAccountId BigInt         @map("payment_account_id")
+  transactionId    BigInt?        @map("transaction_id")
+  description      String
+  notes            String?
+  createdBy        String         @map("created_by") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  customer         Contact        @relation(fields: [customerId], references: [id])
+  revenueAccount   Account        @relation("InvoiceRevenue", fields: [revenueAccountId], references: [id])
+  paymentAccount   Account        @relation("InvoicePayment", fields: [paymentAccountId], references: [id])
+  transaction      Transaction?   @relation(fields: [transactionId], references: [id])
+  creator          BookkeeperUser @relation(fields: [createdBy], references: [id])
+
+  @@index([customerId, status])
+  @@index([dueOn, status])
+  @@map("invoices")
+}
+
+model Document {
+  id         BigInt         @id @default(autoincrement())
+  label      String
+  url        String
+  entityType String         @map("entity_type")
+  entityId   String         @map("entity_id")
+  notes      String?
+  createdBy  String         @map("created_by") @db.Uuid
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  creator    BookkeeperUser @relation(fields: [createdBy], references: [id])
+
+  @@index([entityType, entityId])
+  @@map("documents")
+}
+
 model Reminder {
   id          BigInt           @id @default(autoincrement())
   title       String
@@ -220,6 +285,19 @@ enum RecurrenceUnit {
   week
   month
   year
+}
+
+enum ContactType {
+  customer
+  vendor
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  paid
+  overdue
+  void
 }
 
 enum ReminderPriority {

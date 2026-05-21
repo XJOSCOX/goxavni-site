@@ -10,7 +10,10 @@ import { Home } from "./Home.jsx";
 import { Accounts } from "./views/Accounts.jsx";
 import { AuditLogs } from "./views/AuditLogs.jsx";
 import { Calendar } from "./views/Calendar.jsx";
+import { Contacts } from "./views/Contacts.jsx";
 import { Dashboard } from "./views/Dashboard.jsx";
+import { Documents } from "./views/Documents.jsx";
+import { Invoices } from "./views/Invoices.jsx";
 import { Members } from "./views/Members.jsx";
 import { Payments } from "./views/Payments.jsx";
 import { Reminders } from "./views/Reminders.jsx";
@@ -43,6 +46,9 @@ function Bookkeeper() {
     timesheets: [],
     payments: [],
     subscriptions: [],
+    contacts: [],
+    invoices: [],
+    documents: [],
     auditLogs: [],
     reminders: [],
     calendar: { from: "", to: "", events: [] },
@@ -52,12 +58,14 @@ function Bookkeeper() {
         dueSoonReminders: 0,
         upcomingSubscriptions: 0,
         pendingTimesheets: 0,
+        overdueInvoices: 0,
         activeSubscriptions: 0,
         recurringAmount: 0
       },
       insights: [],
       reminders: [],
       subscriptions: [],
+      invoices: [],
       timesheets: []
     },
     users: [],
@@ -67,6 +75,7 @@ function Bookkeeper() {
   const canOwn = user?.role === "owner";
   const canManage = ["owner", "manager"].includes(user?.role);
   const activeMembers = data.members.filter((member) => member.active);
+  const customers = data.contacts.filter((contact) => contact.active && contact.type === "customer");
   const assetAccounts = data.accounts.filter((account) => account.active && account.type === "asset");
   const revenueAccounts = data.accounts.filter((account) => account.active && account.type === "revenue");
   const expenseAccounts = data.accounts.filter((account) => account.active && account.type === "expense");
@@ -101,31 +110,40 @@ function Bookkeeper() {
         categories: summary.categories,
         members: members.members,
         timesheets: timesheets.timesheets,
-      payments: [],
-      subscriptions: [],
-      auditLogs: [],
+        payments: [],
+        subscriptions: [],
+        contacts: [],
+        invoices: [],
+        documents: [],
+        auditLogs: [],
         reminders: reminders.reminders,
         calendar: calendar.calendar,
         smart: smart.smart,
         users: [],
         report: { income: 0, expenses: 0, net: 0, categories: [] }
       };
-    if (["owner", "manager"].includes(currentUser?.role)) {
-      const [users, payments, subscriptions, report] = await Promise.all([
+      if (["owner", "manager"].includes(currentUser?.role)) {
+        const [users, payments, subscriptions, contacts, invoices, documents, report] = await Promise.all([
           api("/api/users"),
           api("/api/member-payments"),
           api("/api/subscriptions"),
+          api("/api/contacts"),
+          api("/api/invoices"),
+          api("/api/documents"),
           api("/api/reports/profit-loss")
         ]);
         next.users = users.users;
         next.payments = payments.payments;
-      next.subscriptions = subscriptions.subscriptions;
-      next.report = report.report;
-    }
-    if (currentUser?.role === "owner") {
-      const auditLogs = await api("/api/audit-logs");
-      next.auditLogs = auditLogs.auditLogs;
-    }
+        next.subscriptions = subscriptions.subscriptions;
+        next.contacts = contacts.contacts;
+        next.invoices = invoices.invoices;
+        next.documents = documents.documents;
+        next.report = report.report;
+      }
+      if (currentUser?.role === "owner") {
+        const auditLogs = await api("/api/audit-logs");
+        next.auditLogs = auditLogs.auditLogs;
+      }
       setData(next);
     } catch (error) {
       const text = messageForError(error);
@@ -242,6 +260,9 @@ function Bookkeeper() {
     ["members", "Members", true],
     ["timesheets", "Timesheets", true],
     ["payments", "Payments", canManage],
+    ["contacts", "Contacts", canManage],
+    ["invoices", "Invoices", canManage],
+    ["documents", "Documents", canManage],
     ["subscriptions", "Subscriptions", canManage],
     ["reports", "Reports", canManage],
     ["accounts", "Accounts", true],
@@ -291,7 +312,10 @@ function Bookkeeper() {
         {view === "members" && <Members data={data} canManage={canManage} {...editTools} />}
         {view === "timesheets" && <Timesheets data={data} activeMembers={activeMembers} canManage={canManage} {...editTools} />}
         {view === "payments" && <Payments data={data} activeMembers={activeMembers} assetAccounts={assetAccounts} expenseAccounts={expenseAccounts} canOwn={canOwn} {...editTools} />}
-        {view === "subscriptions" && <Subscriptions data={data} assetAccounts={assetAccounts} expenseAccounts={expenseAccounts} {...editTools} />}
+        {view === "contacts" && <Contacts data={data} {...editTools} />}
+        {view === "invoices" && <Invoices data={data} customers={customers} assetAccounts={assetAccounts} revenueAccounts={revenueAccounts} refreshData={loadCore} {...editTools} />}
+        {view === "documents" && <Documents data={data} {...editTools} />}
+        {view === "subscriptions" && <Subscriptions data={data} assetAccounts={assetAccounts} expenseAccounts={expenseAccounts} refreshData={loadCore} {...editTools} />}
         {view === "reports" && <Reports data={data} setData={setData} setMessage={setMessage} />}
         {view === "accounts" && <Accounts data={data} canOwn={canOwn} {...editTools} />}
         {view === "users" && <Users user={user} data={data} roleOptions={roleOptions} {...editTools} />}

@@ -15,6 +15,19 @@ function addDays(date, days) {
   return next;
 }
 
+function parseDate(value) {
+  return new Date(`${value}T00:00:00Z`);
+}
+
+function addRecurrence(dateValue, every, unit) {
+  const next = parseDate(dateValue);
+  if (unit === "day") next.setUTCDate(next.getUTCDate() + every);
+  if (unit === "week") next.setUTCDate(next.getUTCDate() + every * 7);
+  if (unit === "month") next.setUTCMonth(next.getUTCMonth() + every);
+  if (unit === "year") next.setUTCFullYear(next.getUTCFullYear() + every);
+  return dateString(next);
+}
+
 function defaultWindow() {
   const today = new Date();
   return {
@@ -907,6 +920,289 @@ export class SupabaseStore {
     return data.id;
   }
 
+  async postSubscription(id, userId) {
+    this.ensureConfigured();
+    const { data: subscription, error: findError } = await this.admin
+      .from("subscriptions")
+      .select("id, vendor, description, amount_cents, payment_account_id, expense_account_id, frequency_every, frequency_unit, next_due_on, end_on, reference, active")
+      .eq("id", id)
+      .maybeSingle();
+    if (findError) throw new Error(normalizeSupabaseError(findError));
+    if (!subscription) throw Object.assign(new Error("Subscription not found."), { status: 404 });
+    if (!subscription.active) throw Object.assign(new Error("Subscription is inactive."), { status: 400 });
+
+    const { data: transaction, error: transactionError } = await this.admin
+      .from("transactions")
+      .insert({
+        occurred_on: subscription.next_due_on,
+        type: "expense",
+        party: subscription.vendor,
+        description: subscription.description,
+        reference: subscription.reference,
+        payment_account_id: subscription.payment_account_id,
+        category_account_id: subscription.expense_account_id,
+        amount_cents: subscription.amount_cents,
+        created_by: userId
+      })
+      .select("id")
+      .single();
+    if (transactionError) throw Object.assign(new Error(normalizeSupabaseError(transactionError)), { status: 400 });
+
+    const nextDueOn = addRecurrence(subscription.next_due_on, subscription.frequency_every, subscription.frequency_unit);
+    const shouldDeactivate = subscription.end_on && nextDueOn > subscription.end_on;
+    const { error: updateError } = await this.admin
+      .from("subscriptions")
+      .update({
+        next_due_on: nextDueOn,
+        active: shouldDeactivate ? false : true
+      })
+      .eq("id", id);
+    if (updateError) throw Object.assign(new Error(normalizeSupabaseError(updateError)), { status: 400 });
+
+    return { transactionId: transaction.id, nextDueOn, active: !shouldDeactivate };
+  }
+
+  async listContacts() {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("contacts")
+      .select("id, type, name, email, phone, company, notes, active, created_at")
+      .order("active", { ascending: false })
+      .order("type")
+      .order("name");
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data.map((contact) => ({
+      id: contact.id,
+      type: contact.type,
+      name: contact.name,
+      email: contact.email,
+      phone: contact.phone,
+      company: contact.company,
+      notes: contact.notes,
+      active: contact.active,
+      createdAt: contact.created_at
+    }));
+  }
+
+  async getContact(id) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("contacts")
+      .select("id, type, name, active")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data;
+  }
+
+  async createContact(contact, userId) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("contacts")
+      .insert({
+        type: contact.type,
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        company: contact.company,
+        notes: contact.notes,
+        active: contact.active,
+        created_by: userId
+      })
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
+  async updateContact(id, contact) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("contacts")
+      .update({
+        type: contact.type,
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        company: contact.company,
+        notes: contact.notes,
+        active: contact.active
+      })
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
+  async validateInvoice(invoice) {
+    const customer = await this.getContact(invoice.customerId);
+    if (!customer || customer.type !== "customer" || !customer.active) {
+      throw Object.assign(new Error("Choose an active customer."), { status: 400 });
+    }
+    const revenueAccount = await this.getAccount(invoice.revenueAccountId);
+    const paymentAccount = await this.getAccount(invoice.paymentAccountId);
+    if (!revenueAccount || revenueAccount.type !== "revenue" || !revenueAccount.active) {
+      throw Object.assign(new Error("Revenue account must be active."), { status: 400 });
+    }
+    if (!paymentAccount || paymentAccount.type !== "asset" || !paymentAccount.active) {
+      throw Object.assign(new Error("Payment account must be an active asset account."), { status: 400 });
+    }
+    return customer;
+  }
+
+  async listInvoices() {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("invoices")
+      .select("id, invoice_number, customer_id, issue_on, due_on, status, amount_cents, revenue_account_id, payment_account_id, transaction_id, description, notes, created_at, customer:customer_id(name), revenue:revenue_account_id(name), payment:payment_account_id(name)")
+      .order("due_on", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(300);
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data.map((invoice) => ({
+      id: invoice.id,
+      invoiceNumber: invoice.invoice_number,
+      customerId: invoice.customer_id,
+      customerName: invoice.customer?.name || "",
+      issueOn: invoice.issue_on,
+      dueOn: invoice.due_on,
+      status: invoice.status,
+      amountCents: invoice.amount_cents,
+      amount: formatMoney(invoice.amount_cents),
+      revenueAccountId: invoice.revenue_account_id,
+      paymentAccountId: invoice.payment_account_id,
+      transactionId: invoice.transaction_id,
+      description: invoice.description,
+      notes: invoice.notes,
+      revenueAccount: invoice.revenue?.name || "",
+      paymentAccount: invoice.payment?.name || "",
+      createdAt: invoice.created_at
+    }));
+  }
+
+  async createInvoice(invoice, userId) {
+    this.ensureConfigured();
+    await this.validateInvoice(invoice);
+    const { data, error } = await this.admin
+      .from("invoices")
+      .insert({
+        invoice_number: invoice.invoiceNumber,
+        customer_id: invoice.customerId,
+        issue_on: invoice.issueOn,
+        due_on: invoice.dueOn,
+        status: invoice.status,
+        amount_cents: invoice.amountCents,
+        revenue_account_id: invoice.revenueAccountId,
+        payment_account_id: invoice.paymentAccountId,
+        description: invoice.description,
+        notes: invoice.notes,
+        created_by: userId
+      })
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: error.code === "23505" ? 409 : 400 });
+    return data.id;
+  }
+
+  async updateInvoice(id, invoice) {
+    this.ensureConfigured();
+    await this.validateInvoice(invoice);
+    const { data, error } = await this.admin
+      .from("invoices")
+      .update({
+        invoice_number: invoice.invoiceNumber,
+        customer_id: invoice.customerId,
+        issue_on: invoice.issueOn,
+        due_on: invoice.dueOn,
+        status: invoice.status,
+        amount_cents: invoice.amountCents,
+        revenue_account_id: invoice.revenueAccountId,
+        payment_account_id: invoice.paymentAccountId,
+        description: invoice.description,
+        notes: invoice.notes
+      })
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: error.code === "23505" ? 409 : 400 });
+    return data.id;
+  }
+
+  async markInvoicePaid(id, userId) {
+    this.ensureConfigured();
+    const { data: invoice, error: findError } = await this.admin
+      .from("invoices")
+      .select("id, invoice_number, customer_id, due_on, status, amount_cents, revenue_account_id, payment_account_id, transaction_id, description, customer:customer_id(name)")
+      .eq("id", id)
+      .maybeSingle();
+    if (findError) throw new Error(normalizeSupabaseError(findError));
+    if (!invoice) throw Object.assign(new Error("Invoice not found."), { status: 404 });
+    if (invoice.status === "paid" && invoice.transaction_id) return invoice.transaction_id;
+
+    const { data: transaction, error: transactionError } = await this.admin
+      .from("transactions")
+      .insert({
+        occurred_on: dateString(new Date()),
+        type: "income",
+        party: invoice.customer?.name || "Customer",
+        description: invoice.description,
+        reference: invoice.invoice_number,
+        payment_account_id: invoice.payment_account_id,
+        category_account_id: invoice.revenue_account_id,
+        amount_cents: invoice.amount_cents,
+        created_by: userId
+      })
+      .select("id")
+      .single();
+    if (transactionError) throw Object.assign(new Error(normalizeSupabaseError(transactionError)), { status: 400 });
+
+    const { error: updateError } = await this.admin
+      .from("invoices")
+      .update({ status: "paid", transaction_id: transaction.id })
+      .eq("id", id);
+    if (updateError) throw Object.assign(new Error(normalizeSupabaseError(updateError)), { status: 400 });
+    return transaction.id;
+  }
+
+  async listDocuments() {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("documents")
+      .select("id, label, url, entity_type, entity_id, notes, created_at, creator:created_by(name)")
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data.map((document) => ({
+      id: document.id,
+      label: document.label,
+      url: document.url,
+      entityType: document.entity_type,
+      entityId: document.entity_id,
+      notes: document.notes,
+      createdAt: document.created_at,
+      createdBy: document.creator?.name || ""
+    }));
+  }
+
+  async createDocument(document, userId) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("documents")
+      .insert({
+        label: document.label,
+        url: document.url,
+        entity_type: document.entityType,
+        entity_id: document.entityId,
+        notes: document.notes,
+        created_by: userId
+      })
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
   async listReminders({ from, to, includeDone = true, actor } = {}) {
     this.ensureConfigured();
     let query = this.admin
@@ -981,9 +1277,10 @@ export class SupabaseStore {
     this.ensureConfigured();
     const fallback = defaultWindow();
     const range = { from: from || fallback.from, to: to || fallback.to };
-    const [reminders, subscriptions, transactions, timesheets, payments] = await Promise.all([
+    const [reminders, subscriptions, invoices, transactions, timesheets, payments] = await Promise.all([
       this.listReminders({ from: range.from, to: range.to, includeDone: true, actor }),
       actor?.role === "member" ? [] : this.listSubscriptions(),
+      actor?.role === "member" ? [] : this.listInvoices(),
       (() => {
         let query = this.admin
         .from("transactions")
@@ -1031,6 +1328,17 @@ export class SupabaseStore {
           amount: subscription.amount,
           status: "active"
         })),
+      ...invoices
+        .filter((invoice) => !["paid", "void"].includes(invoice.status) && invoice.dueOn >= range.from && invoice.dueOn <= range.to)
+        .map((invoice) => ({
+          id: `invoice-${invoice.id}`,
+          date: invoice.dueOn,
+          type: "invoice",
+          title: invoice.invoiceNumber,
+          detail: invoice.customerName,
+          amount: invoice.amount,
+          status: invoice.status
+        })),
       ...transactions.data.map((transaction) => ({
         id: `transaction-${transaction.id}`,
         date: transaction.occurred_on,
@@ -1067,10 +1375,11 @@ export class SupabaseStore {
     const today = dateString(new Date());
     const nextWeek = dateString(addDays(new Date(), 7));
     const nextTwoWeeks = dateString(addDays(new Date(), 14));
-    const [dashboard, reminders, subscriptions, timesheets] = await Promise.all([
+    const [dashboard, reminders, subscriptions, invoices, timesheets] = await Promise.all([
       this.summary({ actor }),
       this.listReminders({ includeDone: false, actor }),
       actor?.role === "member" ? [] : this.listSubscriptions(),
+      actor?.role === "member" ? [] : this.listInvoices(),
       this.listTimesheets({ actor })
     ]);
 
@@ -1082,6 +1391,7 @@ export class SupabaseStore {
       subscription.active && subscription.nextDueOn >= today && subscription.nextDueOn <= nextTwoWeeks
     ));
     const pendingTimesheets = timesheets.filter((timesheet) => timesheet.status === "submitted");
+    const overdueInvoices = invoices.filter((invoice) => !["paid", "void"].includes(invoice.status) && invoice.dueOn < today);
     const activeSubscriptions = subscriptions.filter((subscription) => subscription.active);
     const recurringCents = activeSubscriptions.reduce((total, subscription) => total + Number(subscription.amountCents || 0), 0);
 
@@ -1110,6 +1420,12 @@ export class SupabaseStore {
         value: pendingTimesheets.length,
         action: "Approve or update submitted hours."
       },
+      overdueInvoices.length && {
+        tone: "danger",
+        title: "Overdue invoices",
+        value: overdueInvoices.length,
+        action: "Follow up with customers and mark paid when money arrives."
+      },
       {
         tone: dashboard.summary.net < 0 ? "danger" : "good",
         title: "Current net",
@@ -1125,12 +1441,14 @@ export class SupabaseStore {
         dueSoonReminders: dueSoonReminders.length,
         upcomingSubscriptions: upcomingSubscriptions.length,
         pendingTimesheets: pendingTimesheets.length,
+        overdueInvoices: overdueInvoices.length,
         activeSubscriptions: activeSubscriptions.length,
         recurringAmount: formatMoney(recurringCents)
       },
       insights,
       reminders: [...overdueReminders, ...dueSoonReminders].slice(0, 8),
       subscriptions: upcomingSubscriptions.slice(0, 8),
+      invoices: overdueInvoices.slice(0, 8),
       timesheets: pendingTimesheets.slice(0, 8)
     };
   }

@@ -6,7 +6,7 @@ import { api, messageForError, money, payload } from "../api.js";
 export function Reports({ data, setData, setMessage }) {
   return (
     <section className="view">
-      <Panel title="Reports" action={<div className="report-actions"><a className="ghost link-button" href="/api/reports/transactions.csv"><Download size={15} /> Transactions CSV</a><a className="ghost link-button" href="/api/reports/timesheets.csv"><Download size={15} /> Timesheets CSV</a><a className="ghost link-button" href="/api/reports/member-payments.csv"><Download size={15} /> Payments CSV</a><a className="ghost link-button" href="/api/reports/subscriptions.csv"><Download size={15} /> Subscriptions CSV</a><a className="ghost link-button" href="/api/reports/reminders.csv"><Download size={15} /> Reminders CSV</a></div>}>
+      <Panel title="Reports" action={<div className="report-actions"><a className="ghost link-button" href="/api/reports/transactions.csv"><Download size={15} /> Transactions CSV</a><a className="ghost link-button" href="/api/reports/timesheets.csv"><Download size={15} /> Timesheets CSV</a><a className="ghost link-button" href="/api/reports/member-payments.csv"><Download size={15} /> Payments CSV</a><a className="ghost link-button" href="/api/reports/subscriptions.csv"><Download size={15} /> Subscriptions CSV</a><a className="ghost link-button" href="/api/reports/invoices.csv"><Download size={15} /> Invoices CSV</a><a className="ghost link-button" href="/api/reports/contacts.csv"><Download size={15} /> Contacts CSV</a><a className="ghost link-button" href="/api/reports/reminders.csv"><Download size={15} /> Reminders CSV</a></div>}>
         <form className="form-grid compact" onSubmit={async (event) => {
           event.preventDefault();
           setMessage("");

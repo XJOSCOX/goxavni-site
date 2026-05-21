@@ -119,4 +119,48 @@ export function registerReportsRoutes(app, { store, requireAuth, requireRole }) 
       next(error);
     }
   });
+
+  app.get("/api/reports/contacts.csv", requireAuth, requireRole(["owner", "manager"]), async (_req, res, next) => {
+    try {
+      const contacts = await store.listContacts();
+      sendCsv(res, "goxavni-contacts.csv", [
+        ["Type", "Name", "Company", "Email", "Phone", "Status", "Notes"],
+        ...contacts.map((contact) => [
+          contact.type,
+          contact.name,
+          contact.company || "",
+          contact.email || "",
+          contact.phone || "",
+          contact.active ? "Active" : "Inactive",
+          contact.notes || ""
+        ])
+      ]);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/reports/invoices.csv", requireAuth, requireRole(["owner", "manager"]), async (_req, res, next) => {
+    try {
+      const invoices = await store.listInvoices();
+      sendCsv(res, "goxavni-invoices.csv", [
+        ["Invoice", "Customer", "Issue Date", "Due Date", "Status", "Amount", "Revenue Account", "Payment Account", "Transaction", "Description", "Notes"],
+        ...invoices.map((invoice) => [
+          invoice.invoiceNumber,
+          invoice.customerName,
+          invoice.issueOn,
+          invoice.dueOn,
+          invoice.status,
+          invoice.amount,
+          invoice.revenueAccount,
+          invoice.paymentAccount,
+          invoice.transactionId || "",
+          invoice.description,
+          invoice.notes || ""
+        ])
+      ]);
+    } catch (error) {
+      next(error);
+    }
+  });
 }

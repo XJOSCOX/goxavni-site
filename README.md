@@ -76,6 +76,10 @@ Audit section.
 - Basic health check: `/api/health`
 - Login and sign-up have basic rate limiting.
 - Important create/update/approval actions are written to `audit_logs`.
+- Customers and vendors are tracked in Contacts.
+- Invoices can be created, exported, and marked paid. Marking paid creates the matching income transaction.
+- Document links can be attached to records for receipts, contracts, and supporting files.
+- Active subscriptions can be posted into expense transactions and advanced to the next due date.
 
 ## Deployment note
 

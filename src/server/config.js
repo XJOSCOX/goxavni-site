@@ -16,6 +16,8 @@ export const transactionTypes = ["income", "expense"];
 export const recurrenceUnits = ["day", "week", "month", "year"];
 export const reminderPriorities = ["low", "normal", "high", "urgent"];
 export const reminderStatuses = ["open", "done"];
+export const contactTypes = ["customer", "vendor"];
+export const invoiceStatuses = ["draft", "sent", "paid", "overdue", "void"];
 export const sessionSecret = process.env.SESSION_SECRET || "local-dev-change-this-secret";
 export const hasSupabaseConfig = Boolean(
   process.env.SUPABASE_URL &&

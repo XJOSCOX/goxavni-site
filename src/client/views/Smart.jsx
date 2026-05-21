@@ -23,6 +23,7 @@ export function Smart({ data, setData, setMessage }) {
         <Metric label="Due this week" value={smart.metrics.dueSoonReminders} />
         <Metric label="Recurring due" value={smart.metrics.upcomingSubscriptions} />
         <Metric label="Waiting timesheets" value={smart.metrics.pendingTimesheets} />
+        <Metric label="Overdue invoices" value={smart.metrics.overdueInvoices || 0} />
       </div>
 
       <Panel title="Smart Signals" action={<button className="ghost" type="button" onClick={() => refresh().catch((error) => setMessage(messageForError(error)))}><RefreshCw size={16} /> Refresh</button>}>
@@ -59,6 +60,17 @@ export function Smart({ data, setData, setMessage }) {
           ))} />
         </Panel>
       </div>
+
+      <Panel title="Overdue Invoices">
+        <Table columns={["Due", "Invoice", "Customer", "Amount"]} empty="No overdue invoices." rows={(smart.invoices || []).map((invoice) => (
+          <tr key={invoice.id}>
+            <td>{invoice.dueOn}</td>
+            <td>{invoice.invoiceNumber}</td>
+            <td>{invoice.customerName}</td>
+            <td className="amount positive">{money.format(invoice.amount)}</td>
+          </tr>
+        ))} />
+      </Panel>
     </section>
   );
 }

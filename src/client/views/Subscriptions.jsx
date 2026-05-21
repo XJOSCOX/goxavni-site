@@ -1,7 +1,7 @@
 import React from "react";
-import { Edit3 } from "lucide-react";
+import { Edit3, ReceiptText } from "lucide-react";
 import { EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
-import { money } from "../api.js";
+import { api, messageForError, money } from "../api.js";
 
 const frequencyOptions = [["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"]];
 
@@ -11,10 +11,20 @@ function frequencyText(subscription) {
   return `Every ${subscription.frequencyEvery} ${label}`;
 }
 
-export function Subscriptions({ data, assetAccounts, expenseAccounts, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage }) {
+export function Subscriptions({ data, assetAccounts, expenseAccounts, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, refreshData, setMessage }) {
   const activeTotal = data.subscriptions
     .filter((subscription) => subscription.active)
     .reduce((total, subscription) => total + Number(subscription.amount || 0), 0);
+
+  async function postSubscription(subscription) {
+    setMessage("");
+    try {
+      await api(`/api/subscriptions/${subscription.id}/post`, { method: "POST", body: "{}" });
+      await refreshData();
+    } catch (error) {
+      setMessage(messageForError(error));
+    }
+  }
 
   return (
     <section className="view">
@@ -81,7 +91,12 @@ export function Subscriptions({ data, assetAccounts, expenseAccounts, editing, i
               <td>{frequencyText(subscription)}</td>
               <td>{subscription.nextDueOn}</td>
               <td>{subscription.active ? "Active" : "Inactive"}</td>
-              <td><button className="icon-button ghost" type="button" title="Edit subscription" onClick={() => startEdit("subscription", subscription.id, { vendor: subscription.vendor, description: subscription.description, amount: subscription.amount, paymentAccountId: subscription.paymentAccountId, expenseAccountId: subscription.expenseAccountId, frequencyEvery: subscription.frequencyEvery, frequencyUnit: subscription.frequencyUnit, startOn: subscription.startOn, nextDueOn: subscription.nextDueOn, endOn: subscription.endOn || "", reference: subscription.reference || "", notes: subscription.notes || "", active: String(subscription.active) })}><Edit3 size={15} /></button></td>
+              <td>
+                <div className="row-actions">
+                  <button className="icon-button ghost" type="button" title="Edit subscription" onClick={() => startEdit("subscription", subscription.id, { vendor: subscription.vendor, description: subscription.description, amount: subscription.amount, paymentAccountId: subscription.paymentAccountId, expenseAccountId: subscription.expenseAccountId, frequencyEvery: subscription.frequencyEvery, frequencyUnit: subscription.frequencyUnit, startOn: subscription.startOn, nextDueOn: subscription.nextDueOn, endOn: subscription.endOn || "", reference: subscription.reference || "", notes: subscription.notes || "", active: String(subscription.active) })}><Edit3 size={15} /></button>
+                  {subscription.active && <button className="icon-button ghost" type="button" title="Post transaction" onClick={() => postSubscription(subscription)}><ReceiptText size={15} /></button>}
+                </div>
+              </td>
             </tr>
           );
         })} />

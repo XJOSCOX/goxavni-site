@@ -4,24 +4,24 @@ This is the next practical path for making the internal finance portal stronger 
 
 ## Production Hardening
 
-- Add database-backed audit logs for create, update, approval, payment, and user-role changes.
+- Done: add database-backed audit logs for create, update, approval, payment, and user-role changes.
 - Add soft delete or void workflows instead of destructive deletes.
-- Add rate limiting for login and sign-up attempts.
+- Done: add basic rate limiting for login and sign-up attempts.
 - Add database indexes for reporting ranges, calendar ranges, and common ledger filters.
 - Add a Vercel deployment checklist with required environment variables and migration steps.
 
 ## Bookkeeping Core
 
 - Add account balances and cash-flow views.
-- Add vendors, customers, and projects as first-class records instead of free-text fields only.
-- Add invoice tracking for revenue: draft, sent, paid, overdue.
-- Add receipt/document uploads for expenses and member payments.
+- Done: add customers and vendors as first-class Contacts.
+- Done: add invoice tracking for revenue: draft, sent, paid, overdue, void.
+- Done: add document links for receipts, contracts, and supporting files.
 - Add transaction review statuses: draft, reviewed, posted, void.
-- Add recurring transaction generation from subscriptions.
+- Done: add recurring transaction posting from subscriptions.
 
 ## Member Operations
 
-- Restrict member users to their own timesheets unless owner or manager.
+- Done: restrict member users to their own linked member data.
 - Add weekly timesheet submission and approval batches.
 - Add payment runs from approved unpaid timesheets.
 - Add exportable member statements.
@@ -42,8 +42,8 @@ This is the next practical path for making the internal finance portal stronger 
 
 ## UX Improvements
 
-- Add search and filters on every table.
-- Add pagination for large ledgers.
+- Done: add shared table search.
+- Done: add shared table pagination.
 - Add confirmation dialogs for high-impact actions.
 - Add keyboard-friendly quick entry for transactions and timesheets.
 - Add empty states that guide the first setup flow: accounts, members, first transaction, first report.

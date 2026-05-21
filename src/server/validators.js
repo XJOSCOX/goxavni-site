@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { accountTypes, recurrenceUnits, reminderPriorities, reminderStatuses, transactionTypes } from "./config.js";
+import { accountTypes, contactTypes, invoiceStatuses, recurrenceUnits, reminderPriorities, reminderStatuses, transactionTypes } from "./config.js";
 import { centsFromInput, parseBoolean } from "./utils.js";
 
 export function codeHash(code) {
@@ -178,6 +178,92 @@ export function validateReminder(body) {
       dueTime: dueTime || null,
       priority,
       status
+    }
+  };
+}
+
+export function validateContact(body) {
+  const type = String(body.type || "").trim();
+  const name = String(body.name || "").trim();
+  const email = String(body.email || "").trim().toLowerCase();
+  const phone = String(body.phone || "").trim();
+  const company = String(body.company || "").trim();
+  const notes = String(body.notes || "").trim();
+  const active = parseBoolean(body.active, true);
+
+  if (!contactTypes.includes(type)) return { error: "Choose customer or vendor." };
+  if (!name) return { error: "Contact name is required." };
+
+  return {
+    value: {
+      type,
+      name,
+      email: email || null,
+      phone: phone || null,
+      company: company || null,
+      notes: notes || null,
+      active
+    }
+  };
+}
+
+export function validateInvoice(body) {
+  const invoiceNumber = String(body.invoiceNumber || "").trim();
+  const customerId = Number(body.customerId);
+  const issueOn = String(body.issueOn || "").trim();
+  const dueOn = String(body.dueOn || "").trim();
+  const status = String(body.status || "draft").trim();
+  const amountCents = centsFromInput(body.amount);
+  const revenueAccountId = Number(body.revenueAccountId);
+  const paymentAccountId = Number(body.paymentAccountId);
+  const description = String(body.description || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!invoiceNumber) return { error: "Invoice number is required." };
+  if (!Number.isFinite(customerId) || customerId <= 0) return { error: "Customer is required." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(issueOn)) return { error: "Enter a valid issue date." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueOn)) return { error: "Enter a valid due date." };
+  if (!invoiceStatuses.includes(status)) return { error: "Choose a valid invoice status." };
+  if (!amountCents) return { error: "Invoice amount must be greater than zero." };
+  if (!Number.isFinite(revenueAccountId) || revenueAccountId <= 0) return { error: "Revenue account is required." };
+  if (!Number.isFinite(paymentAccountId) || paymentAccountId <= 0) return { error: "Payment account is required." };
+  if (!description) return { error: "Invoice description is required." };
+
+  return {
+    value: {
+      invoiceNumber,
+      customerId,
+      issueOn,
+      dueOn,
+      status,
+      amountCents,
+      revenueAccountId,
+      paymentAccountId,
+      description,
+      notes: notes || null
+    }
+  };
+}
+
+export function validateDocument(body) {
+  const label = String(body.label || "").trim();
+  const url = String(body.url || "").trim();
+  const entityType = String(body.entityType || "").trim();
+  const entityId = String(body.entityId || "").trim();
+  const notes = String(body.notes || "").trim();
+
+  if (!label) return { error: "Document label is required." };
+  if (!/^https?:\/\/\S+$/i.test(url)) return { error: "Document URL must start with http:// or https://." };
+  if (!entityType) return { error: "Document record type is required." };
+  if (!entityId) return { error: "Document record id is required." };
+
+  return {
+    value: {
+      label,
+      url,
+      entityType,
+      entityId,
+      notes: notes || null
     }
   };
 }
