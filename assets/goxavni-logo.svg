@@ -1,0 +1,43 @@
+<svg width="920" height="180" viewBox="0 0 920 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="softGlow" x="-20%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.45 0 0 0 0 0.95 0 0 0 0 1 0 0 0 0.55 0"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="32%" stop-color="#d9fdff"/>
+      <stop offset="64%" stop-color="#5dbdc4"/>
+      <stop offset="100%" stop-color="#f4ffff"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="920" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#dffcff"/>
+      <stop offset="50%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#7de7ee"/>
+    </linearGradient>
+  </defs>
+
+  <g filter="url(#softGlow)">
+    <!-- GO -->
+    <path d="M92 52H40C24 52 14 63 14 80V100C14 117 24 128 40 128H93C109 128 119 117 119 101V89H66V103H101C99 111 94 114 84 114H44C34 114 29 109 29 100V80C29 71 34 66 44 66H92V52Z" fill="url(#metal)"/>
+    <path d="M170 51H220C238 51 249 62 249 80V100C249 118 238 129 220 129H170C152 129 141 118 141 100V80C141 62 152 51 170 51ZM175 66C163 66 157 72 157 82V98C157 108 163 114 175 114H215C227 114 233 108 233 98V82C233 72 227 66 215 66H175Z" fill="url(#metal)"/>
+
+    <!-- X -->
+    <path d="M310 49H334L381 86L429 49H453L396 91L454 131H429L381 97L333 131H309L366 90L310 49Z" fill="url(#edge)"/>
+
+    <!-- A custom angular -->
+    <path d="M534 49L608 131H586L534 73L482 131H460L534 49Z" fill="url(#metal)"/>
+    <path d="M512 104H557L568 118H501L512 104Z" fill="#b9f7fb" opacity=".65"/>
+
+    <!-- VNI -->
+    <path d="M620 52L667 113L714 52H737L678 128H656L597 52H620Z" fill="url(#metal)"/>
+    <path d="M758 52H778L845 105V52H862V128H843L775 74V128H758V52Z" fill="url(#metal)"/>
+    <path d="M892 52H909V128H892V52Z" fill="url(#metal)"/>
+  </g>
+
+  <rect x="15" y="154" width="250" height="1.4" rx=".7" fill="#8efaff" opacity=".28"/>
+</svg>
