@@ -33,17 +33,22 @@ a {
 }
 
 .site {
+  position: relative;
   min-height: 100vh;
   display: grid;
   grid-template-rows: auto 1fr auto;
+  overflow: hidden;
   background:
     linear-gradient(90deg, rgba(4, 13, 15, 0.84), rgba(4, 13, 15, 0.46)),
     linear-gradient(180deg, rgba(4, 13, 15, 0.18), rgba(4, 13, 15, 0.78)),
     url("assets/goxavni-background.jpg") center / cover no-repeat;
+  animation: sceneIn 900ms ease-out both;
 }
 
 .header,
 .footer {
+  position: relative;
+  z-index: 1;
   width: min(1120px, calc(100% - 44px));
   margin: 0 auto;
   display: flex;
@@ -53,6 +58,7 @@ a {
 
 .header {
   min-height: 92px;
+  animation: fadeDown 800ms ease-out 120ms both;
 }
 
 .header a,
@@ -74,6 +80,7 @@ a {
 .brand span,
 h1 span {
   color: var(--aqua);
+  animation: xGlow 3.4s ease-in-out 1.2s infinite;
 }
 
 .header > a:not(.brand):hover {
@@ -81,6 +88,8 @@ h1 span {
 }
 
 .hero {
+  position: relative;
+  z-index: 1;
   width: min(1120px, calc(100% - 44px));
   margin: 0 auto;
   display: flex;
@@ -100,6 +109,7 @@ h1 {
   font-weight: 400;
   letter-spacing: 0.045em;
   text-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+  animation: brandReveal 1.05s cubic-bezier(0.16, 1, 0.3, 1) 220ms both;
 }
 
 .hero p {
@@ -110,9 +120,11 @@ h1 {
   line-height: 1.5;
   font-weight: 300;
   letter-spacing: 0.015em;
+  animation: riseIn 820ms ease-out 720ms both;
 }
 
 .button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   min-height: 46px;
@@ -124,7 +136,20 @@ h1 {
   font-size: 14px;
   font-weight: 520;
   backdrop-filter: blur(10px);
-  transition: border-color 180ms ease, background 180ms ease;
+  overflow: hidden;
+  box-shadow: 0 0 0 rgba(122, 242, 229, 0);
+  animation: riseIn 820ms ease-out 940ms both, buttonPulse 3.8s ease-in-out 1.8s infinite;
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+
+.button::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(110deg, transparent, rgba(247, 255, 253, 0.34), transparent);
+  transform: translateX(-120%);
+  animation: buttonSheen 4.4s ease-in-out 1.6s infinite;
+  pointer-events: none;
 }
 
 .button:hover {
@@ -135,10 +160,124 @@ h1 {
 .footer {
   min-height: 74px;
   border-top: 1px solid var(--line);
+  animation: fadeUp 900ms ease-out 420ms both;
 }
 
 .footer p {
   margin: 0;
+}
+
+@keyframes sceneIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes brandReveal {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(28px) scale(0.96);
+    letter-spacing: 0.14em;
+  }
+
+  68% {
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+    letter-spacing: 0.045em;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes xGlow {
+  0%,
+  100% {
+    text-shadow: 0 0 0 rgba(122, 242, 229, 0);
+  }
+
+  50% {
+    text-shadow:
+      0 0 12px rgba(122, 242, 229, 0.92),
+      0 0 34px rgba(122, 242, 229, 0.50);
+  }
+}
+
+@keyframes buttonPulse {
+  0%,
+  100% {
+    border-color: var(--line);
+    box-shadow: 0 0 0 rgba(122, 242, 229, 0);
+  }
+
+  50% {
+    border-color: rgba(122, 242, 229, 0.55);
+    box-shadow: 0 0 24px rgba(122, 242, 229, 0.16);
+  }
+}
+
+@keyframes buttonSheen {
+  0%,
+  72% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }
 
 @media (max-width: 640px) {
