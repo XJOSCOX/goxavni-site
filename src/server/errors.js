@@ -21,7 +21,16 @@ export function notFound(_req, res) {
 export function errorHandler(error, _req, res, _next) {
   const isJsonSyntaxError = error instanceof SyntaxError && "body" in error;
   const status = isJsonSyntaxError ? 400 : error.status || 500;
-  const code = isJsonSyntaxError ? "invalid_json" : error.code || "server_error";
+  const defaultCodes = {
+    400: "bad_request",
+    401: "unauthorized",
+    403: "forbidden",
+    404: "not_found",
+    409: "conflict",
+    429: "rate_limited",
+    503: "service_unavailable"
+  };
+  const code = isJsonSyntaxError ? "invalid_json" : error.code || defaultCodes[status] || "server_error";
   const message = isJsonSyntaxError
     ? "Request body must be valid JSON."
     : status === 500 ? "Something went wrong. Please try again." : error.message;

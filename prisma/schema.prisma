@@ -18,6 +18,7 @@ model BookkeeperUser {
   createdMembers    Member[]        @relation("MemberCreator")
   createdTimesheets Timesheet[]     @relation("TimesheetCreator")
   approvedTimesheets Timesheet[]    @relation("TimesheetApprover")
+  auditLogs          AuditLog[]
   createdPayments   MemberPayment[] @relation("PaymentCreator")
   reminders          Reminder[]
   subscriptions      Subscription[]
@@ -172,6 +173,21 @@ model Reminder {
   creator     BookkeeperUser   @relation(fields: [createdBy], references: [id])
 
   @@map("reminders")
+}
+
+model AuditLog {
+  id         BigInt         @id @default(autoincrement())
+  actorId    String         @map("actor_id") @db.Uuid
+  action     String
+  entityType String         @map("entity_type")
+  entityId   String         @map("entity_id")
+  summary    String?
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  actor      BookkeeperUser @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
 }
 
 enum Role {

@@ -3,9 +3,9 @@ import { validateTransaction } from "../validators.js";
 
 
 export function registerTransactionsRoutes(app, { store, requireAuth, requireRole }) {
-  app.get("/api/transactions", requireAuth, async (_req, res, next) => {
+  app.get("/api/transactions", requireAuth, async (req, res, next) => {
     try {
-      res.json({ transactions: await store.listTransactions() });
+      res.json({ transactions: await store.listTransactions({ actor: req.user }) });
     } catch (error) {
       next(error);
     }
@@ -16,6 +16,7 @@ export function registerTransactionsRoutes(app, { store, requireAuth, requireRol
       const parsed = await validateTransaction(req.body, store);
       if (parsed.error) return sendValidationError(res, parsed.error);
       const id = await store.createTransaction(parsed.value, req.user.id);
+      await store.createAuditLog({ actorId: req.user.id, action: "create", entityType: "transaction", entityId: id, summary: `${parsed.value.type} ${parsed.value.amountCents}` });
       return res.status(201).json({ id });
     } catch (error) {
       return next(error);
@@ -27,15 +28,16 @@ export function registerTransactionsRoutes(app, { store, requireAuth, requireRol
       const parsed = await validateTransaction(req.body, store);
       if (parsed.error) return sendValidationError(res, parsed.error);
       const id = await store.updateTransaction(Number(req.params.id), parsed.value);
+      await store.createAuditLog({ actorId: req.user.id, action: "update", entityType: "transaction", entityId: id, summary: `${parsed.value.type} ${parsed.value.amountCents}` });
       return res.json({ id });
     } catch (error) {
       return next(error);
     }
   });
   
-  app.get("/api/summary", requireAuth, async (_req, res, next) => {
+  app.get("/api/summary", requireAuth, async (req, res, next) => {
     try {
-      res.json(await store.summary());
+      res.json(await store.summary({ actor: req.user }));
     } catch (error) {
       next(error);
     }

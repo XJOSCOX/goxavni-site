@@ -16,6 +16,7 @@ export function registerAccountsRoutes(app, { store, requireAuth, requireRole })
       const parsed = validateAccount(req.body);
       if (parsed.error) return sendValidationError(res, parsed.error);
       const id = await store.createAccount(parsed.value);
+      await store.createAuditLog({ actorId: req.user.id, action: "create", entityType: "account", entityId: id, summary: parsed.value.name });
       return res.status(201).json({ id });
     } catch (error) {
       return next(error);
@@ -27,6 +28,7 @@ export function registerAccountsRoutes(app, { store, requireAuth, requireRole })
       const parsed = validateAccount(req.body);
       if (parsed.error) return sendValidationError(res, parsed.error);
       const id = await store.updateAccount(Number(req.params.id), parsed.value);
+      await store.createAuditLog({ actorId: req.user.id, action: "update", entityType: "account", entityId: id, summary: parsed.value.name });
       return res.json({ id });
     } catch (error) {
       return next(error);

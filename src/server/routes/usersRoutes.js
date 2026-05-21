@@ -19,6 +19,7 @@ export function registerUsersRoutes(app, { store, requireAuth, requireRole }) {
         role: String(req.body.role || "").trim(),
         actorRole: req.user.role
       });
+      await store.createAuditLog({ actorId: req.user.id, action: "create", entityType: "user", entityId: id, summary: String(req.body.email || "").trim().toLowerCase() });
       return res.status(201).json({ id });
     } catch (error) {
       return next(error);
@@ -36,6 +37,7 @@ export function registerUsersRoutes(app, { store, requireAuth, requireRole }) {
         actorRole: req.user.role,
         actorId: req.user.id
       });
+      await store.createAuditLog({ actorId: req.user.id, action: "update", entityType: "user", entityId: id, summary: String(req.body.email || "").trim().toLowerCase() });
       return res.json({ id });
     } catch (error) {
       return next(error);

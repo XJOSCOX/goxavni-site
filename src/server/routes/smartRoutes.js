@@ -1,7 +1,7 @@
 export function registerSmartRoutes(app, { store, requireAuth }) {
-  app.get("/api/smart", requireAuth, async (_req, res, next) => {
+  app.get("/api/smart", requireAuth, async (req, res, next) => {
     try {
-      res.json({ smart: await store.smartInsights() });
+      res.json({ smart: await store.smartInsights(req.user) });
     } catch (error) {
       next(error);
     }

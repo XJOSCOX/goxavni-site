@@ -16,6 +16,7 @@ export function registerSubscriptionsRoutes(app, { store, requireAuth, requireRo
       const parsed = validateSubscription(req.body);
       if (parsed.error) return sendValidationError(res, parsed.error);
       const id = await store.createSubscription(parsed.value, req.user.id);
+      await store.createAuditLog({ actorId: req.user.id, action: "create", entityType: "subscription", entityId: id, summary: parsed.value.vendor });
       return res.status(201).json({ id });
     } catch (error) {
       return next(error);
@@ -27,6 +28,7 @@ export function registerSubscriptionsRoutes(app, { store, requireAuth, requireRo
       const parsed = validateSubscription(req.body);
       if (parsed.error) return sendValidationError(res, parsed.error);
       const id = await store.updateSubscription(Number(req.params.id), parsed.value);
+      await store.createAuditLog({ actorId: req.user.id, action: "update", entityType: "subscription", entityId: id, summary: parsed.value.vendor });
       return res.json({ id });
     } catch (error) {
       return next(error);

@@ -80,6 +80,39 @@ export class SupabaseStore {
     return true;
   }
 
+  async createAuditLog({ actorId, action, entityType, entityId, summary }) {
+    this.ensureConfigured();
+    const { error } = await this.admin.from("audit_logs").insert({
+      actor_id: actorId,
+      action,
+      entity_type: entityType,
+      entity_id: String(entityId),
+      summary: summary || null
+    });
+    if (error) throw new Error(normalizeSupabaseError(error));
+  }
+
+  async listAuditLogs() {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("audit_logs")
+      .select("id, action, entity_type, entity_id, summary, created_at, actor:actor_id(name, email, role)")
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data.map((entry) => ({
+      id: entry.id,
+      action: entry.action,
+      entityType: entry.entity_type,
+      entityId: entry.entity_id,
+      summary: entry.summary,
+      createdAt: entry.created_at,
+      actorName: entry.actor?.name || "",
+      actorEmail: entry.actor?.email || "",
+      actorRole: entry.actor?.role || ""
+    }));
+  }
+
   async currentUser(id) {
     this.ensureConfigured();
     const { data, error } = await this.admin
@@ -225,9 +258,9 @@ export class SupabaseStore {
     return data.id;
   }
 
-  async listTransactions() {
+  async listTransactions({ actor } = {}) {
     this.ensureConfigured();
-    const { data, error } = await this.admin
+    let query = this.admin
       .from("transactions")
       .select(
         `
@@ -248,6 +281,8 @@ export class SupabaseStore {
       .order("occurred_on", { ascending: false })
       .order("id", { ascending: false })
       .limit(200);
+    if (actor?.role === "member") query = query.eq("created_by", actor.id);
+    const { data, error } = await query;
     if (error) throw new Error(normalizeSupabaseError(error));
 
     return data.map((transaction) => ({
@@ -309,11 +344,13 @@ export class SupabaseStore {
     return data.id;
   }
 
-  async summary() {
+  async summary({ actor } = {}) {
     this.ensureConfigured();
-    const { data, error } = await this.admin
+    let query = this.admin
       .from("transactions")
       .select("type, amount_cents, category:category_account_id(name, type)");
+    if (actor?.role === "member") query = query.eq("created_by", actor.id);
+    const { data, error } = await query;
     if (error) throw new Error(normalizeSupabaseError(error));
 
     const totals = data.reduce(
@@ -432,13 +469,27 @@ export class SupabaseStore {
     return data.id;
   }
 
-  async listMembers() {
+  async getMemberForUser(userId) {
     this.ensureConfigured();
     const { data, error } = await this.admin
+      .from("members")
+      .select("id, user_id, name, email, title, hourly_rate_cents, active")
+      .eq("user_id", userId)
+      .eq("active", true)
+      .maybeSingle();
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data;
+  }
+
+  async listMembers(actor = null) {
+    this.ensureConfigured();
+    let query = this.admin
       .from("members")
       .select("id, user_id, name, email, title, hourly_rate_cents, active, created_at")
       .order("active", { ascending: false })
       .order("name");
+    if (actor?.role === "member") query = query.eq("user_id", actor.id);
+    const { data, error } = await query;
     if (error) throw new Error(normalizeSupabaseError(error));
     return data.map((member) => ({
       id: member.id,
@@ -501,7 +552,7 @@ export class SupabaseStore {
     return data.id;
   }
 
-  async listTimesheets({ from, to } = {}) {
+  async listTimesheets({ from, to, actor } = {}) {
     this.ensureConfigured();
     let query = this.admin
       .from("timesheets")
@@ -511,6 +562,11 @@ export class SupabaseStore {
       .limit(300);
     if (from) query = query.gte("work_date", from);
     if (to) query = query.lte("work_date", to);
+    if (actor?.role === "member") {
+      const member = await this.getMemberForUser(actor.id);
+      if (!member) return [];
+      query = query.eq("member_id", member.id);
+    }
     const { data, error } = await query;
     if (error) throw new Error(normalizeSupabaseError(error));
     return data.map((row) => ({
@@ -529,8 +585,15 @@ export class SupabaseStore {
     }));
   }
 
-  async createTimesheet(timesheet, userId) {
+  async createTimesheet(timesheet, actor) {
     this.ensureConfigured();
+    const userId = typeof actor === "string" ? actor : actor.id;
+    if (actor?.role === "member") {
+      const actorMember = await this.getMemberForUser(actor.id);
+      if (!actorMember || Number(actorMember.id) !== Number(timesheet.memberId)) {
+        throw Object.assign(new Error("Members can only enter time for themselves."), { status: 403 });
+      }
+    }
     const member = await this.getMember(timesheet.memberId);
     if (!member || !member.active) {
       throw Object.assign(new Error("Choose an active member."), { status: 400 });
@@ -844,7 +907,7 @@ export class SupabaseStore {
     return data.id;
   }
 
-  async listReminders({ from, to, includeDone = true } = {}) {
+  async listReminders({ from, to, includeDone = true, actor } = {}) {
     this.ensureConfigured();
     let query = this.admin
       .from("reminders")
@@ -856,6 +919,7 @@ export class SupabaseStore {
     if (from) query = query.gte("due_on", from);
     if (to) query = query.lte("due_on", to);
     if (!includeDone) query = query.eq("status", "open");
+    if (actor?.role === "member") query = query.eq("created_by", actor.id);
 
     const { data, error } = await query;
     if (error) throw new Error(normalizeSupabaseError(error));
@@ -913,28 +977,26 @@ export class SupabaseStore {
     return data.id;
   }
 
-  async calendarEvents({ from, to } = {}) {
+  async calendarEvents({ from, to, actor } = {}) {
     this.ensureConfigured();
     const fallback = defaultWindow();
     const range = { from: from || fallback.from, to: to || fallback.to };
     const [reminders, subscriptions, transactions, timesheets, payments] = await Promise.all([
-      this.listReminders({ from: range.from, to: range.to, includeDone: true }),
-      this.listSubscriptions(),
-      this.admin
+      this.listReminders({ from: range.from, to: range.to, includeDone: true, actor }),
+      actor?.role === "member" ? [] : this.listSubscriptions(),
+      (() => {
+        let query = this.admin
         .from("transactions")
         .select("id, occurred_on, type, party, description, amount_cents")
         .gte("occurred_on", range.from)
         .lte("occurred_on", range.to)
         .order("occurred_on", { ascending: true })
-        .limit(300),
-      this.admin
-        .from("timesheets")
-        .select("id, work_date, hours, project, status, member:member_id(name)")
-        .gte("work_date", range.from)
-        .lte("work_date", range.to)
-        .order("work_date", { ascending: true })
-        .limit(300),
-      this.admin
+        .limit(300);
+        if (actor?.role === "member") query = query.eq("created_by", actor.id);
+        return query;
+      })(),
+      this.listTimesheets({ from: range.from, to: range.to, actor }),
+      actor?.role === "member" ? { data: [], error: null } : this.admin
         .from("member_payments")
         .select("id, paid_on, amount_cents, member:member_id(name)")
         .gte("paid_on", range.from)
@@ -943,7 +1005,7 @@ export class SupabaseStore {
         .limit(300)
     ]);
 
-    for (const result of [transactions, timesheets, payments]) {
+    for (const result of [transactions, payments]) {
       if (result.error) throw new Error(normalizeSupabaseError(result.error));
     }
 
@@ -978,11 +1040,11 @@ export class SupabaseStore {
         amount: formatMoney(transaction.amount_cents),
         status: transaction.type
       })),
-      ...timesheets.data.map((timesheet) => ({
+      ...timesheets.map((timesheet) => ({
         id: `timesheet-${timesheet.id}`,
-        date: timesheet.work_date,
+        date: timesheet.workDate,
         type: "timesheet",
-        title: timesheet.member?.name || "Member",
+        title: timesheet.memberName || "Member",
         detail: timesheet.project || `${Number(timesheet.hours)} hours`,
         status: timesheet.status
       })),
@@ -1000,16 +1062,16 @@ export class SupabaseStore {
     return { ...range, events: sortCalendarEvents(events) };
   }
 
-  async smartInsights() {
+  async smartInsights(actor = null) {
     this.ensureConfigured();
     const today = dateString(new Date());
     const nextWeek = dateString(addDays(new Date(), 7));
     const nextTwoWeeks = dateString(addDays(new Date(), 14));
     const [dashboard, reminders, subscriptions, timesheets] = await Promise.all([
-      this.summary(),
-      this.listReminders({ includeDone: false }),
-      this.listSubscriptions(),
-      this.listTimesheets()
+      this.summary({ actor }),
+      this.listReminders({ includeDone: false, actor }),
+      actor?.role === "member" ? [] : this.listSubscriptions(),
+      this.listTimesheets({ actor })
     ]);
 
     const overdueReminders = reminders

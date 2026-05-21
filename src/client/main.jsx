@@ -8,6 +8,7 @@ import { Auth } from "./Auth.jsx";
 import { ErrorBoundary } from "./components.jsx";
 import { Home } from "./Home.jsx";
 import { Accounts } from "./views/Accounts.jsx";
+import { AuditLogs } from "./views/AuditLogs.jsx";
 import { Calendar } from "./views/Calendar.jsx";
 import { Dashboard } from "./views/Dashboard.jsx";
 import { Members } from "./views/Members.jsx";
@@ -42,6 +43,7 @@ function Bookkeeper() {
     timesheets: [],
     payments: [],
     subscriptions: [],
+    auditLogs: [],
     reminders: [],
     calendar: { from: "", to: "", events: [] },
     smart: {
@@ -99,16 +101,17 @@ function Bookkeeper() {
         categories: summary.categories,
         members: members.members,
         timesheets: timesheets.timesheets,
-        payments: [],
-        subscriptions: [],
+      payments: [],
+      subscriptions: [],
+      auditLogs: [],
         reminders: reminders.reminders,
         calendar: calendar.calendar,
         smart: smart.smart,
         users: [],
         report: { income: 0, expenses: 0, net: 0, categories: [] }
       };
-      if (["owner", "manager"].includes(currentUser?.role)) {
-        const [users, payments, subscriptions, report] = await Promise.all([
+    if (["owner", "manager"].includes(currentUser?.role)) {
+      const [users, payments, subscriptions, report] = await Promise.all([
           api("/api/users"),
           api("/api/member-payments"),
           api("/api/subscriptions"),
@@ -116,9 +119,13 @@ function Bookkeeper() {
         ]);
         next.users = users.users;
         next.payments = payments.payments;
-        next.subscriptions = subscriptions.subscriptions;
-        next.report = report.report;
-      }
+      next.subscriptions = subscriptions.subscriptions;
+      next.report = report.report;
+    }
+    if (currentUser?.role === "owner") {
+      const auditLogs = await api("/api/audit-logs");
+      next.auditLogs = auditLogs.auditLogs;
+    }
       setData(next);
     } catch (error) {
       const text = messageForError(error);
@@ -238,7 +245,8 @@ function Bookkeeper() {
     ["subscriptions", "Subscriptions", canManage],
     ["reports", "Reports", canManage],
     ["accounts", "Accounts", true],
-    ["users", "Users", canManage]
+    ["users", "Users", canManage],
+    ["audit", "Audit", canOwn]
   ];
 
   return (
@@ -287,6 +295,7 @@ function Bookkeeper() {
         {view === "reports" && <Reports data={data} setData={setData} setMessage={setMessage} />}
         {view === "accounts" && <Accounts data={data} canOwn={canOwn} {...editTools} />}
         {view === "users" && <Users user={user} data={data} roleOptions={roleOptions} {...editTools} />}
+        {view === "audit" && <AuditLogs data={data} />}
 
         <footer className="bookkeeper-footer">
           <span>GoXAvni LLC Internal Finance Portal</span>

@@ -66,6 +66,17 @@ For Prisma, use Supabase Postgres connection strings:
 - `manager`: can manage members, approve timesheets, view reports, and create member users.
 - `member`: can enter transactions and timesheets.
 
+Member users only see their own linked member profile, timesheets, reminders,
+calendar items, and transaction summary. Owners can review write activity in the
+Audit section.
+
+## Operations
+
+- Readiness check: `/api/health/ready`
+- Basic health check: `/api/health`
+- Login and sign-up have basic rate limiting.
+- Important create/update/approval actions are written to `audit_logs`.
+
 ## Deployment note
 
 The public landing page and bookkeeper route can run on Vercel. Bookkeeping

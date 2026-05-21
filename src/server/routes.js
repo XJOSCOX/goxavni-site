@@ -1,5 +1,6 @@
 import { createRequireAuth, requireRole } from "./auth.js";
 import { registerAccountsRoutes } from "./routes/accountsRoutes.js";
+import { registerAuditRoutes } from "./routes/auditRoutes.js";
 import { registerAuthRoutes } from "./routes/authRoutes.js";
 import { registerCalendarRoutes } from "./routes/calendarRoutes.js";
 import { registerHealthRoutes } from "./routes/healthRoutes.js";
@@ -20,6 +21,7 @@ export function registerRoutes(app, store) {
   registerSpaRoutes(app);
   registerHealthRoutes(app, context);
   registerAuthRoutes(app, context);
+  registerAuditRoutes(app, context);
   registerAccountsRoutes(app, context);
   registerSmartRoutes(app, context);
   registerCalendarRoutes(app, context);

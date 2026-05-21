@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Save, X } from "lucide-react";
 
 export class ErrorBoundary extends React.Component {
@@ -33,24 +33,67 @@ export class ErrorBoundary extends React.Component {
   }
 }
 
+function textFromNode(node) {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textFromNode).join(" ");
+  if (React.isValidElement(node)) return textFromNode(node.props.children);
+  return "";
+}
+
 export function Table({ columns, rows, empty }) {
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
+  const searchable = rows.length > 6;
+  const filteredRows = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((row) => textFromNode(row).toLowerCase().includes(needle));
+  }, [query, rows]);
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const visibleRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, rows.length]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
   return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th key={column} className={["Amount", "Hours", "Rate"].includes(column) ? "amount" : ""}>{column}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length ? rows : (
-            <tr><td className="empty" colSpan={columns.length}>{empty}</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+    <>
+      {searchable && (
+        <div className="table-tools">
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search table" aria-label="Search table" />
+          <span>{filteredRows.length} of {rows.length}</span>
+        </div>
+      )}
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              {columns.map((column) => (
+                <th key={column} className={["Amount", "Hours", "Rate"].includes(column) ? "amount" : ""}>{column}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {visibleRows.length ? visibleRows : (
+              <tr><td className="empty" colSpan={columns.length}>{empty}</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {filteredRows.length > pageSize && (
+        <div className="table-pager">
+          <button className="ghost" type="button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button>
+          <span>Page {page} of {pageCount}</span>
+          <button className="ghost" type="button" disabled={page === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>Next</button>
+        </div>
+      )}
+    </>
   );
 }
 
