@@ -1,9 +1,12 @@
 import { createRequireAuth, requireRole } from "./auth.js";
 import { registerAccountsRoutes } from "./routes/accountsRoutes.js";
 import { registerAuthRoutes } from "./routes/authRoutes.js";
+import { registerCalendarRoutes } from "./routes/calendarRoutes.js";
 import { registerMembersRoutes } from "./routes/membersRoutes.js";
 import { registerPaymentsRoutes } from "./routes/paymentsRoutes.js";
 import { registerReportsRoutes } from "./routes/reportsRoutes.js";
+import { registerRemindersRoutes } from "./routes/remindersRoutes.js";
+import { registerSmartRoutes } from "./routes/smartRoutes.js";
 import { registerSpaRoutes } from "./routes/spaRoutes.js";
 import { registerSubscriptionsRoutes } from "./routes/subscriptionsRoutes.js";
 import { registerTimesheetsRoutes } from "./routes/timesheetsRoutes.js";
@@ -16,6 +19,9 @@ export function registerRoutes(app, store) {
   registerSpaRoutes(app);
   registerAuthRoutes(app, context);
   registerAccountsRoutes(app, context);
+  registerSmartRoutes(app, context);
+  registerCalendarRoutes(app, context);
+  registerRemindersRoutes(app, context);
   registerTransactionsRoutes(app, context);
   registerUsersRoutes(app, context);
   registerMembersRoutes(app, context);

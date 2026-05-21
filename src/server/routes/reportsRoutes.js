@@ -99,4 +99,24 @@ export function registerReportsRoutes(app, { store, requireAuth, requireRole }) 
       next(error);
     }
   });
+
+  app.get("/api/reports/reminders.csv", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const reminders = await store.listReminders({ ...dateRangeFromQuery(req.query), includeDone: true });
+      sendCsv(res, "goxavni-reminders.csv", [
+        ["Due Date", "Due Time", "Title", "Priority", "Status", "Created By", "Details"],
+        ...reminders.map((reminder) => [
+          reminder.dueOn,
+          reminder.dueTime || "",
+          reminder.title,
+          reminder.priority,
+          reminder.status,
+          reminder.createdBy,
+          reminder.details || ""
+        ])
+      ]);
+    } catch (error) {
+      next(error);
+    }
+  });
 }

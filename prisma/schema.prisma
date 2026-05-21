@@ -19,6 +19,7 @@ model BookkeeperUser {
   createdTimesheets Timesheet[]     @relation("TimesheetCreator")
   approvedTimesheets Timesheet[]    @relation("TimesheetApprover")
   createdPayments   MemberPayment[] @relation("PaymentCreator")
+  reminders          Reminder[]
   subscriptions      Subscription[]
   transactions      Transaction[]
   usedSignupCodes   UsedSignupCode[]
@@ -157,6 +158,22 @@ model Subscription {
   @@map("subscriptions")
 }
 
+model Reminder {
+  id          BigInt           @id @default(autoincrement())
+  title       String
+  details     String?
+  dueOn       DateTime         @map("due_on") @db.Date
+  dueTime     String?          @map("due_time")
+  priority    ReminderPriority @default(normal)
+  status      ReminderStatus   @default(open)
+  createdBy   String           @map("created_by") @db.Uuid
+  completedAt DateTime?        @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  creator     BookkeeperUser   @relation(fields: [createdBy], references: [id])
+
+  @@map("reminders")
+}
+
 enum Role {
   owner
   manager
@@ -187,4 +204,16 @@ enum RecurrenceUnit {
   week
   month
   year
+}
+
+enum ReminderPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum ReminderStatus {
+  open
+  done
 }

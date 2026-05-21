@@ -3,6 +3,33 @@ import { defaultAccounts, hasSupabaseConfig, roles } from "../config.js";
 import { canManageRole, cleanAccount, formatMoney, normalizeSupabaseError } from "../utils.js";
 import { codeHash, roleFromSignupCode, signupCodesFromEnv } from "../validators.js";
 
+const priorityScore = { urgent: 4, high: 3, normal: 2, low: 1 };
+
+function dateString(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function defaultWindow() {
+  const today = new Date();
+  return {
+    from: dateString(today),
+    to: dateString(addDays(today, 45))
+  };
+}
+
+function sortCalendarEvents(events) {
+  return events.sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return String(a.time || "99:99").localeCompare(String(b.time || "99:99"));
+  });
+}
+
 export class SupabaseStore {
   constructor() {
     this.provider = "supabase";
@@ -798,6 +825,235 @@ export class SupabaseStore {
       .single();
     if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
     return data.id;
+  }
+
+  async listReminders({ from, to, includeDone = true } = {}) {
+    this.ensureConfigured();
+    let query = this.admin
+      .from("reminders")
+      .select("id, title, details, due_on, due_time, priority, status, completed_at, created_at, creator:created_by(name)")
+      .order("due_on", { ascending: true })
+      .order("due_time", { ascending: true })
+      .order("priority", { ascending: false })
+      .limit(400);
+    if (from) query = query.gte("due_on", from);
+    if (to) query = query.lte("due_on", to);
+    if (!includeDone) query = query.eq("status", "open");
+
+    const { data, error } = await query;
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data.map((reminder) => ({
+      id: reminder.id,
+      title: reminder.title,
+      details: reminder.details,
+      dueOn: reminder.due_on,
+      dueTime: reminder.due_time,
+      priority: reminder.priority,
+      status: reminder.status,
+      completedAt: reminder.completed_at,
+      createdAt: reminder.created_at,
+      createdBy: reminder.creator?.name || ""
+    }));
+  }
+
+  async createReminder(reminder, userId) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("reminders")
+      .insert({
+        title: reminder.title,
+        details: reminder.details,
+        due_on: reminder.dueOn,
+        due_time: reminder.dueTime,
+        priority: reminder.priority,
+        status: reminder.status,
+        completed_at: reminder.status === "done" ? new Date().toISOString() : null,
+        created_by: userId
+      })
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
+  async updateReminder(id, reminder) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("reminders")
+      .update({
+        title: reminder.title,
+        details: reminder.details,
+        due_on: reminder.dueOn,
+        due_time: reminder.dueTime,
+        priority: reminder.priority,
+        status: reminder.status,
+        completed_at: reminder.status === "done" ? new Date().toISOString() : null
+      })
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
+  async calendarEvents({ from, to } = {}) {
+    this.ensureConfigured();
+    const fallback = defaultWindow();
+    const range = { from: from || fallback.from, to: to || fallback.to };
+    const [reminders, subscriptions, transactions, timesheets, payments] = await Promise.all([
+      this.listReminders({ from: range.from, to: range.to, includeDone: true }),
+      this.listSubscriptions(),
+      this.admin
+        .from("transactions")
+        .select("id, occurred_on, type, party, description, amount_cents")
+        .gte("occurred_on", range.from)
+        .lte("occurred_on", range.to)
+        .order("occurred_on", { ascending: true })
+        .limit(300),
+      this.admin
+        .from("timesheets")
+        .select("id, work_date, hours, project, status, member:member_id(name)")
+        .gte("work_date", range.from)
+        .lte("work_date", range.to)
+        .order("work_date", { ascending: true })
+        .limit(300),
+      this.admin
+        .from("member_payments")
+        .select("id, paid_on, amount_cents, member:member_id(name)")
+        .gte("paid_on", range.from)
+        .lte("paid_on", range.to)
+        .order("paid_on", { ascending: true })
+        .limit(300)
+    ]);
+
+    for (const result of [transactions, timesheets, payments]) {
+      if (result.error) throw new Error(normalizeSupabaseError(result.error));
+    }
+
+    const events = [
+      ...reminders.map((reminder) => ({
+        id: `reminder-${reminder.id}`,
+        date: reminder.dueOn,
+        time: reminder.dueTime,
+        type: "reminder",
+        title: reminder.title,
+        detail: reminder.details || reminder.priority,
+        status: reminder.status,
+        priority: reminder.priority
+      })),
+      ...subscriptions
+        .filter((subscription) => subscription.active && subscription.nextDueOn >= range.from && subscription.nextDueOn <= range.to)
+        .map((subscription) => ({
+          id: `subscription-${subscription.id}`,
+          date: subscription.nextDueOn,
+          type: "subscription",
+          title: subscription.vendor,
+          detail: subscription.description,
+          amount: subscription.amount,
+          status: "active"
+        })),
+      ...transactions.data.map((transaction) => ({
+        id: `transaction-${transaction.id}`,
+        date: transaction.occurred_on,
+        type: transaction.type,
+        title: transaction.party,
+        detail: transaction.description,
+        amount: formatMoney(transaction.amount_cents),
+        status: transaction.type
+      })),
+      ...timesheets.data.map((timesheet) => ({
+        id: `timesheet-${timesheet.id}`,
+        date: timesheet.work_date,
+        type: "timesheet",
+        title: timesheet.member?.name || "Member",
+        detail: timesheet.project || `${Number(timesheet.hours)} hours`,
+        status: timesheet.status
+      })),
+      ...payments.data.map((payment) => ({
+        id: `payment-${payment.id}`,
+        date: payment.paid_on,
+        type: "member payment",
+        title: payment.member?.name || "Member",
+        detail: "Member payment",
+        amount: formatMoney(payment.amount_cents),
+        status: "paid"
+      }))
+    ];
+
+    return { ...range, events: sortCalendarEvents(events) };
+  }
+
+  async smartInsights() {
+    this.ensureConfigured();
+    const today = dateString(new Date());
+    const nextWeek = dateString(addDays(new Date(), 7));
+    const nextTwoWeeks = dateString(addDays(new Date(), 14));
+    const [dashboard, reminders, subscriptions, timesheets] = await Promise.all([
+      this.summary(),
+      this.listReminders({ includeDone: false }),
+      this.listSubscriptions(),
+      this.listTimesheets()
+    ]);
+
+    const overdueReminders = reminders
+      .filter((reminder) => reminder.dueOn < today)
+      .sort((a, b) => (priorityScore[b.priority] || 0) - (priorityScore[a.priority] || 0));
+    const dueSoonReminders = reminders.filter((reminder) => reminder.dueOn >= today && reminder.dueOn <= nextWeek);
+    const upcomingSubscriptions = subscriptions.filter((subscription) => (
+      subscription.active && subscription.nextDueOn >= today && subscription.nextDueOn <= nextTwoWeeks
+    ));
+    const pendingTimesheets = timesheets.filter((timesheet) => timesheet.status === "submitted");
+    const activeSubscriptions = subscriptions.filter((subscription) => subscription.active);
+    const recurringCents = activeSubscriptions.reduce((total, subscription) => total + Number(subscription.amountCents || 0), 0);
+
+    const insights = [
+      overdueReminders.length && {
+        tone: "danger",
+        title: "Overdue reminders",
+        value: overdueReminders.length,
+        action: "Review open finance tasks."
+      },
+      dueSoonReminders.length && {
+        tone: "warning",
+        title: "Due this week",
+        value: dueSoonReminders.length,
+        action: "Clear upcoming reminders before they become late."
+      },
+      upcomingSubscriptions.length && {
+        tone: "info",
+        title: "Recurring expenses due",
+        value: upcomingSubscriptions.length,
+        action: "Check account balance before the next charge dates."
+      },
+      pendingTimesheets.length && {
+        tone: "info",
+        title: "Timesheets waiting",
+        value: pendingTimesheets.length,
+        action: "Approve or update submitted hours."
+      },
+      {
+        tone: dashboard.summary.net < 0 ? "danger" : "good",
+        title: "Current net",
+        value: formatMoney(dashboard.summary.net * 100),
+        action: dashboard.summary.net < 0 ? "Expenses are above income right now." : "Income is covering recorded expenses."
+      }
+    ].filter(Boolean);
+
+    return {
+      generatedAt: new Date().toISOString(),
+      metrics: {
+        overdueReminders: overdueReminders.length,
+        dueSoonReminders: dueSoonReminders.length,
+        upcomingSubscriptions: upcomingSubscriptions.length,
+        pendingTimesheets: pendingTimesheets.length,
+        activeSubscriptions: activeSubscriptions.length,
+        recurringAmount: formatMoney(recurringCents)
+      },
+      insights,
+      reminders: [...overdueReminders, ...dueSoonReminders].slice(0, 8),
+      subscriptions: upcomingSubscriptions.slice(0, 8),
+      timesheets: pendingTimesheets.slice(0, 8)
+    };
   }
 
   async profitLossReport({ from, to } = {}) {

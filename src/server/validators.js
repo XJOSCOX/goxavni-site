@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { accountTypes, recurrenceUnits, transactionTypes } from "./config.js";
+import { accountTypes, recurrenceUnits, reminderPriorities, reminderStatuses, transactionTypes } from "./config.js";
 import { centsFromInput, parseBoolean } from "./utils.js";
 
 export function codeHash(code) {
@@ -152,6 +152,32 @@ export function validateSubscription(body) {
       reference: reference || null,
       notes: notes || null,
       active
+    }
+  };
+}
+
+export function validateReminder(body) {
+  const title = String(body.title || "").trim();
+  const details = String(body.details || "").trim();
+  const dueOn = String(body.dueOn || "").trim();
+  const dueTime = String(body.dueTime || "").trim();
+  const priority = String(body.priority || "normal").trim();
+  const status = String(body.status || "open").trim();
+
+  if (!title) return { error: "Reminder title is required." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueOn)) return { error: "Enter a valid reminder date." };
+  if (dueTime && !/^\d{2}:\d{2}$/.test(dueTime)) return { error: "Enter time as HH:MM." };
+  if (!reminderPriorities.includes(priority)) return { error: "Choose a valid priority." };
+  if (!reminderStatuses.includes(status)) return { error: "Choose a valid status." };
+
+  return {
+    value: {
+      title,
+      details: details || null,
+      dueOn,
+      dueTime: dueTime || null,
+      priority,
+      status
     }
   };
 }

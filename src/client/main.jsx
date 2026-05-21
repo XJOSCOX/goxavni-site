@@ -7,10 +7,13 @@ import { api, payload } from "./api.js";
 import { Auth } from "./Auth.jsx";
 import { Home } from "./Home.jsx";
 import { Accounts } from "./views/Accounts.jsx";
+import { Calendar } from "./views/Calendar.jsx";
 import { Dashboard } from "./views/Dashboard.jsx";
 import { Members } from "./views/Members.jsx";
 import { Payments } from "./views/Payments.jsx";
+import { Reminders } from "./views/Reminders.jsx";
 import { Reports } from "./views/Reports.jsx";
+import { Smart } from "./views/Smart.jsx";
 import { Subscriptions } from "./views/Subscriptions.jsx";
 import { Timesheets } from "./views/Timesheets.jsx";
 import { Transactions } from "./views/Transactions.jsx";
@@ -36,6 +39,22 @@ function Bookkeeper() {
     timesheets: [],
     payments: [],
     subscriptions: [],
+    reminders: [],
+    calendar: { from: "", to: "", events: [] },
+    smart: {
+      metrics: {
+        overdueReminders: 0,
+        dueSoonReminders: 0,
+        upcomingSubscriptions: 0,
+        pendingTimesheets: 0,
+        activeSubscriptions: 0,
+        recurringAmount: 0
+      },
+      insights: [],
+      reminders: [],
+      subscriptions: [],
+      timesheets: []
+    },
     users: [],
     report: { income: 0, expenses: 0, net: 0, categories: [] }
   });
@@ -57,12 +76,15 @@ function Bookkeeper() {
   }
 
   async function loadCore(currentUser = user) {
-    const [accounts, transactions, summary, members, timesheets] = await Promise.all([
+    const [accounts, transactions, summary, members, timesheets, reminders, calendar, smart] = await Promise.all([
       api("/api/accounts"),
       api("/api/transactions"),
       api("/api/summary"),
       api("/api/members"),
-      api("/api/timesheets")
+      api("/api/timesheets"),
+      api("/api/reminders"),
+      api("/api/calendar"),
+      api("/api/smart")
     ]);
     const next = {
       accounts: accounts.accounts,
@@ -73,6 +95,9 @@ function Bookkeeper() {
       timesheets: timesheets.timesheets,
       payments: [],
       subscriptions: [],
+      reminders: reminders.reminders,
+      calendar: calendar.calendar,
+      smart: smart.smart,
       users: [],
       report: { income: 0, expenses: 0, net: 0, categories: [] }
     };
@@ -180,6 +205,9 @@ function Bookkeeper() {
   const editTools = { editing, isEditing, setEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage };
   const navItems = [
     ["dashboard", "Dashboard", true],
+    ["smart", "Smart", true],
+    ["calendar", "Calendar", true],
+    ["reminders", "Reminders", true],
     ["transactions", "Transactions", true],
     ["members", "Members", true],
     ["timesheets", "Timesheets", true],
@@ -217,6 +245,9 @@ function Bookkeeper() {
         {message && <div className="notice error" role="alert">{message}</div>}
 
         {view === "dashboard" && <Dashboard data={data} setView={setView} />}
+        {view === "smart" && <Smart data={data} setData={setData} setMessage={setMessage} />}
+        {view === "calendar" && <Calendar data={data} setData={setData} setMessage={setMessage} />}
+        {view === "reminders" && <Reminders data={data} {...editTools} />}
         {view === "transactions" && <Transactions data={data} canManage={canManage} assetAccounts={assetAccounts} revenueAccounts={revenueAccounts} expenseAccounts={expenseAccounts} {...editTools} />}
         {view === "members" && <Members data={data} canManage={canManage} {...editTools} />}
         {view === "timesheets" && <Timesheets data={data} activeMembers={activeMembers} canManage={canManage} {...editTools} />}
