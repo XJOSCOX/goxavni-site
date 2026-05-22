@@ -35,4 +35,14 @@ export function registerPaymentsRoutes(app, { store, requireAuth, requireRole })
       return next(error);
     }
   });
+
+  app.delete("/api/member-payments/:id", requireAuth, requireRole(["owner"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteMemberPayment(Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "member_payment", entityId: id, summary: "Member payment deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
 }

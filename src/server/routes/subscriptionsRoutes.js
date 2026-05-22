@@ -35,6 +35,16 @@ export function registerSubscriptionsRoutes(app, { store, requireAuth, requireRo
     }
   });
 
+  app.delete("/api/subscriptions/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteRecord("subscriptions", Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "subscription", entityId: id, summary: "Subscription deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   app.post("/api/subscriptions/:id/post", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
     try {
       const result = await store.postSubscription(Number(req.params.id), req.user.id);

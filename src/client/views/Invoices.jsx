@@ -1,7 +1,7 @@
 import React from "react";
 import { CheckCircle, Edit3 } from "lucide-react";
 import { api, messageForError, money } from "../api.js";
-import { EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
+import { DeleteButton, EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
 
 const statusOptions = [["draft", "Draft"], ["sent", "Sent"], ["paid", "Paid"], ["overdue", "Overdue"], ["void", "Void"]];
 
@@ -9,7 +9,7 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function Invoices({ data, customers, assetAccounts, revenueAccounts, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, refreshData, setMessage }) {
+export function Invoices({ data, customers, assetAccounts, revenueAccounts, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, refreshData, setMessage }) {
   const openTotal = data.invoices
     .filter((invoice) => !["paid", "void"].includes(invoice.status))
     .reduce((total, invoice) => total + Number(invoice.amount || 0), 0);
@@ -84,6 +84,7 @@ export function Invoices({ data, customers, assetAccounts, revenueAccounts, edit
                 <div className="row-actions">
                   <button className="icon-button ghost" type="button" title="Edit invoice" onClick={() => startEdit("invoice", invoice.id, { invoiceNumber: invoice.invoiceNumber, customerId: invoice.customerId, issueOn: invoice.issueOn, dueOn: invoice.dueOn, status: invoice.status, amount: invoice.amount, revenueAccountId: invoice.revenueAccountId, paymentAccountId: invoice.paymentAccountId, description: invoice.description, notes: invoice.notes || "" })}><Edit3 size={15} /></button>
                   {invoice.status !== "paid" && invoice.status !== "void" && <button className="icon-button ghost" type="button" title="Mark paid" onClick={() => markPaid(invoice)}><CheckCircle size={15} /></button>}
+                  <DeleteButton title="Delete invoice" onDelete={() => deleteRecord(`/api/invoices/${invoice.id}`, "invoice")} />
                 </div>
               </td>
             </tr>

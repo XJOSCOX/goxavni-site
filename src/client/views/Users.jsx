@@ -1,8 +1,8 @@
 import React from "react";
 import { Edit3, Plus } from "lucide-react";
-import { EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
+import { DeleteButton, EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
 
-export function Users({ user, data, roleOptions, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage }) {
+export function Users({ user, data, roleOptions, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, setMessage }) {
   return (
     <section className="view">
       <Panel title="New User">
@@ -32,7 +32,7 @@ export function Users({ user, data, roleOptions, editing, isEditing, setEditValu
               <td>{row.email}</td>
               <td>{row.role}</td>
               <td>{row.active ? "Active" : "Inactive"}</td>
-              <td>{canEditRow && <button className="icon-button ghost" type="button" title="Edit user" onClick={() => startEdit("user", row.id, { name: row.name, email: row.email, role: row.role, active: String(row.active) })}><Edit3 size={15} /></button>}</td>
+              <td>{canEditRow && <div className="row-actions"><button className="icon-button ghost" type="button" title="Edit user" onClick={() => startEdit("user", row.id, { name: row.name, email: row.email, role: row.role, active: String(row.active) })}><Edit3 size={15} /></button><DeleteButton title="Disable user access" onDelete={() => deleteRecord(`/api/users/${row.id}`, "user access")} /></div>}</td>
             </tr>
           );
         })} />

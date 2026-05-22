@@ -68,6 +68,7 @@ export function sendCsv(res, filename, rows) {
 export function normalizeSupabaseError(error) {
   if (!error) return null;
   if (error.code === "23505") return "That record already exists.";
+  if (error.code === "23503") return "That record is still used by another record. Remove the related record first or mark it inactive.";
   if (error.code === "42P01") {
     return "Supabase tables are missing. Run npx prisma migrate dev --name init_bookkeeper first.";
   }

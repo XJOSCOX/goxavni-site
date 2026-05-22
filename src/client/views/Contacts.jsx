@@ -1,10 +1,10 @@
 import React from "react";
 import { Edit3 } from "lucide-react";
-import { EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
+import { DeleteButton, EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
 
 const typeOptions = [["customer", "Customer"], ["vendor", "Vendor"]];
 
-export function Contacts({ data, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage }) {
+export function Contacts({ data, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, setMessage }) {
   return (
     <section className="view">
       <Panel title="New Contact">
@@ -45,7 +45,7 @@ export function Contacts({ data, editing, isEditing, setEditValue, startEdit, ca
               <td>{contact.email || ""}</td>
               <td>{contact.phone || ""}</td>
               <td>{contact.active ? "Active" : "Inactive"}</td>
-              <td><button className="icon-button ghost" type="button" title="Edit contact" onClick={() => startEdit("contact", contact.id, { type: contact.type, name: contact.name, company: contact.company || "", email: contact.email || "", phone: contact.phone || "", notes: contact.notes || "", active: String(contact.active) })}><Edit3 size={15} /></button></td>
+              <td><div className="row-actions"><button className="icon-button ghost" type="button" title="Edit contact" onClick={() => startEdit("contact", contact.id, { type: contact.type, name: contact.name, company: contact.company || "", email: contact.email || "", phone: contact.phone || "", notes: contact.notes || "", active: String(contact.active) })}><Edit3 size={15} /></button><DeleteButton title="Delete contact" onDelete={() => deleteRecord(`/api/contacts/${contact.id}`, "contact")} /></div></td>
             </tr>
           );
         })} />

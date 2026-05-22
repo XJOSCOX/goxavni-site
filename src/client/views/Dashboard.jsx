@@ -14,12 +14,6 @@ function lastMonths(count) {
   });
 }
 
-function nextDays(days) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
 function percent(value, max) {
   if (!max) return 0;
   return Math.max(0, Math.min(100, (value / max) * 100));
@@ -101,14 +95,8 @@ export function Dashboard({ data, setView, canManage }) {
     .filter((subscription) => subscription.status === "active")
     .reduce((total, subscription) => total + Number(subscription.amount || 0), 0);
   const pendingTimesheets = data.timesheets.filter((timesheet) => timesheet.status === "submitted");
-  const remindersDueSoon = data.reminders.filter((reminder) => reminder.status === "open" && reminder.dueOn <= nextDays(7));
   const lowStock = data.products.filter((product) => product.active && product.lowStock);
   const cash = data.balanceSheet.totals?.assets ?? data.summary.net;
-  const maxCategory = Math.max(1, ...data.categories.map((category) => Number(category.amount || 0)));
-  const topProducts = [...data.products]
-    .filter((product) => product.active)
-    .sort((a, b) => Number(b.price || 0) - Number(a.price || 0))
-    .slice(0, 5);
 
   return (
     <section className="view dashboard-view">
@@ -124,52 +112,25 @@ export function Dashboard({ data, setView, canManage }) {
         {canManage && <InsightCard tone={recurringRevenue >= recurringExpense ? "good" : "warning"} label="Recurring spread" value={money.format(recurringRevenue - recurringExpense)} detail={`${money.format(recurringRevenue)} revenue vs ${money.format(recurringExpense)} expenses`} action="Products" onClick={() => setView("products")} />}
         <InsightCard tone={pendingTimesheets.length ? "warning" : "good"} label="Timesheets" value={pendingTimesheets.length} detail="Submitted entries waiting for review" action="Timesheets" onClick={() => setView("timesheets")} />
         {canManage && <InsightCard tone={lowStock.length ? "danger" : "good"} label="Low stock" value={lowStock.length} detail="Products at or below reorder level" action="Products" onClick={() => setView("products")} />}
-        <InsightCard tone={remindersDueSoon.length ? "warning" : "good"} label="Due soon" value={remindersDueSoon.length} detail="Open reminders due in the next 7 days" action="Calendar" onClick={() => setView("calendar")} />
-        <InsightCard label="Transactions" value={data.summary.transactionCount} detail="Recorded ledger entries" action="Transactions" onClick={() => setView("transactions")} />
       </div>
 
-      <div className="split">
-        <Panel title="Six Month Flow">
-          <div className="chart-panel">
-            <BarChart rows={monthlyRows} />
-            <NetLine rows={monthlyRows} />
-            <div className="chart-key">
-              <span><i className="income-dot" /> Income</span>
-              <span><i className="expense-dot" /> Expenses</span>
-            </div>
+      <Panel title="Six Month Flow">
+        <div className="chart-panel">
+          <BarChart rows={monthlyRows} />
+          <NetLine rows={monthlyRows} />
+          <div className="chart-key">
+            <span><i className="income-dot" /> Income</span>
+            <span><i className="expense-dot" /> Expenses</span>
           </div>
-        </Panel>
-        <Panel title="Top Categories">
-          <div className="category-list">
-            {data.categories.length ? data.categories.map((category) => (
-              <div className="category-row" key={`${category.type}-${category.name}`}>
-                <header><span>{category.name}</span><span>{money.format(category.amount)}</span></header>
-                <div className="bar"><span style={{ width: `${Math.max(5, percent(Number(category.amount || 0), maxCategory))}%` }} /></div>
-              </div>
-            )) : <p className="empty">Categories will appear after transactions are saved.</p>}
-          </div>
-        </Panel>
-      </div>
+        </div>
+      </Panel>
 
-      <div className={canManage ? "split" : ""}>
-        <Panel title="Recent Activity" action={<button className="ghost" type="button" onClick={() => setView("transactions")}>Add</button>}>
-          <Table columns={["Date", "Party", "Type", "Amount"]} empty="No activity yet." rows={data.transactions.slice(0, 8).map((tx) => (
-            <tr key={tx.id}><td>{tx.occurredOn}</td><td>{tx.party}</td><td>{tx.type}</td><td className={`amount ${tx.type === "income" ? "positive" : "negative"}`}>{tx.type === "expense" ? "-" : ""}{money.format(tx.amount)}</td></tr>
-          ))} />
-        </Panel>
-        {canManage && (
-          <Panel title="Product Snapshot" action={<button className="ghost" type="button" onClick={() => setView("products")}>Open</button>}>
-            <Table columns={["Product", "Type", "Price", "Stock"]} empty="No products yet." rows={topProducts.map((product) => (
-              <tr key={product.id}>
-                <td>{product.name}</td>
-                <td>{product.type}</td>
-                <td className="amount">{money.format(product.price || 0)}</td>
-                <td className={product.lowStock ? "amount negative" : "amount"}>{product.stockQuantity}</td>
-              </tr>
-            ))} />
-          </Panel>
-        )}
-      </div>
+      <Panel title="Recent Activity" action={<button className="ghost" type="button" onClick={() => setView("transactions")}>Add</button>}>
+        <Table columns={["Date", "Party", "Type", "Amount"]} empty="No activity yet." rows={data.transactions.slice(0, 8).map((tx) => (
+          <tr key={tx.id}><td>{tx.occurredOn}</td><td>{tx.party}</td><td>{tx.type}</td><td className={`amount ${tx.type === "income" ? "positive" : "negative"}`}>{tx.type === "expense" ? "-" : ""}{money.format(tx.amount)}</td></tr>
+        ))} />
+      </Panel>
+
     </section>
   );
 }

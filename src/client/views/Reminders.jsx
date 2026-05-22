@@ -1,6 +1,6 @@
 import React from "react";
 import { Edit3 } from "lucide-react";
-import { EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
+import { DeleteButton, EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
 
 const priorityOptions = [["low", "Low"], ["normal", "Normal"], ["high", "High"], ["urgent", "Urgent"]];
 const statusOptions = [["open", "Open"], ["done", "Done"]];
@@ -9,7 +9,7 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function Reminders({ data, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage }) {
+export function Reminders({ data, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, setMessage }) {
   const open = data.reminders.filter((reminder) => reminder.status === "open");
   const urgent = open.filter((reminder) => reminder.priority === "urgent" || reminder.priority === "high");
 
@@ -55,7 +55,7 @@ export function Reminders({ data, editing, isEditing, setEditValue, startEdit, c
               <td><span className={`status-pill priority-${reminder.priority}`}>{reminder.priority}</span></td>
               <td><span className={`status-pill status-${reminder.status}`}>{reminder.status}</span></td>
               <td>{reminder.details || ""}</td>
-              <td><button className="icon-button ghost" type="button" title="Edit reminder" onClick={() => startEdit("reminder", reminder.id, { title: reminder.title, dueOn: reminder.dueOn, dueTime: reminder.dueTime || "", priority: reminder.priority, status: reminder.status, details: reminder.details || "" })}><Edit3 size={15} /></button></td>
+              <td><div className="row-actions"><button className="icon-button ghost" type="button" title="Edit reminder" onClick={() => startEdit("reminder", reminder.id, { title: reminder.title, dueOn: reminder.dueOn, dueTime: reminder.dueTime || "", priority: reminder.priority, status: reminder.status, details: reminder.details || "" })}><Edit3 size={15} /></button><DeleteButton title="Delete reminder" onDelete={() => deleteRecord(`/api/reminders/${reminder.id}`, "reminder")} /></div></td>
             </tr>
           );
         })} />

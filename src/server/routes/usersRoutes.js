@@ -43,4 +43,18 @@ export function registerUsersRoutes(app, { store, requireAuth, requireRole }) {
       return next(error);
     }
   });
+
+  app.delete("/api/users/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const id = await store.deactivateUser({
+        id: String(req.params.id || "").trim(),
+        actorRole: req.user.role,
+        actorId: req.user.id
+      });
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "user", entityId: id, summary: "User access disabled" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
 }

@@ -1,9 +1,9 @@
 import React from "react";
 import { Edit3, UserPlus } from "lucide-react";
-import { EditActions, EditInput, EditSelect, Input, Panel, Table } from "../components.jsx";
+import { DeleteButton, EditActions, EditInput, EditSelect, Input, Panel, Table } from "../components.jsx";
 import { money } from "../api.js";
 
-export function Members({ data, canManage, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage }) {
+export function Members({ data, canManage, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, setMessage }) {
   return (
     <section className="view">
       <Panel title="New Member">
@@ -35,7 +35,7 @@ export function Members({ data, canManage, editing, isEditing, setEditValue, sta
               <td>{member.title || ""}</td>
               <td className="amount">{money.format(member.hourlyRate || 0)}</td>
               <td>{member.active ? "Active" : "Inactive"}</td>
-              <td>{canManage && <button className="icon-button ghost" type="button" title="Edit member" onClick={() => startEdit("member", member.id, { name: member.name, email: member.email || "", title: member.title || "", hourlyRate: member.hourlyRate || 0, active: String(member.active), userId: member.userId || "" })}><Edit3 size={15} /></button>}</td>
+              <td>{canManage && <div className="row-actions"><button className="icon-button ghost" type="button" title="Edit member" onClick={() => startEdit("member", member.id, { name: member.name, email: member.email || "", title: member.title || "", hourlyRate: member.hourlyRate || 0, active: String(member.active), userId: member.userId || "" })}><Edit3 size={15} /></button><DeleteButton title="Delete member" onDelete={() => deleteRecord(`/api/members/${member.id}`, "member")} /></div>}</td>
             </tr>
           );
         })} />

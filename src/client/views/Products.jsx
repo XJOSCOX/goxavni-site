@@ -1,6 +1,6 @@
 import React from "react";
 import { Edit3, PackagePlus } from "lucide-react";
-import { EditActions, EditInput, EditSelect, Input, Metric, Panel, Select, Table } from "../components.jsx";
+import { DeleteButton, EditActions, EditInput, EditSelect, Input, Metric, Panel, Select, Table } from "../components.jsx";
 import { api, messageForError, money } from "../api.js";
 
 const productTypes = [["app", "App"], ["subscription", "Subscription"], ["resale", "Resale"], ["inventory", "Inventory"], ["service", "Service"]];
@@ -18,7 +18,7 @@ function frequencyText(row) {
   return `Every ${row.billingEvery} ${label}`;
 }
 
-export function Products({ data, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, refreshData, setMessage }) {
+export function Products({ data, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, refreshData, setMessage }) {
   const activeProducts = data.products.filter((product) => product.active);
   const lowStock = data.products.filter((product) => product.active && product.lowStock);
   const inventoryUnits = data.products.reduce((total, product) => total + Number(product.stockQuantity || 0), 0);
@@ -136,14 +136,14 @@ export function Products({ data, editing, isEditing, setEditValue, startEdit, ca
               <td className="amount">{money.format(product.cost || 0)}</td>
               <td className={product.lowStock ? "amount negative" : "amount"}>{product.stockQuantity}</td>
               <td>{product.active ? "Active" : "Inactive"}</td>
-              <td><button className="icon-button ghost" type="button" title="Edit product" onClick={() => startEdit("product", product.id, { sku: product.sku || "", name: product.name, type: product.type, platform: product.platform || "", description: product.description || "", price: product.price, cost: product.cost, stockQuantity: product.stockQuantity, reorderLevel: product.reorderLevel, active: String(product.active) })}><Edit3 size={15} /></button></td>
+              <td><div className="row-actions"><button className="icon-button ghost" type="button" title="Edit product" onClick={() => startEdit("product", product.id, { sku: product.sku || "", name: product.name, type: product.type, platform: product.platform || "", description: product.description || "", price: product.price, cost: product.cost, stockQuantity: product.stockQuantity, reorderLevel: product.reorderLevel, active: String(product.active) })}><Edit3 size={15} /></button><DeleteButton title="Delete product" onDelete={() => deleteRecord(`/api/products/${product.id}`, "product")} /></div></td>
             </tr>
           );
         })} />
       </Panel>
 
       <Panel title="Customer Subscriptions" action={<a className="ghost link-button" href="/api/reports/customer-subscriptions.csv">Customer Subscriptions CSV</a>}>
-        <Table columns={["Customer", "Product", "Status", "Started", "Next Billing", "Frequency", "Amount", "Notes"]} empty="No customer subscriptions yet." rows={data.productSubscriptions.map((subscription) => (
+        <Table columns={["Customer", "Product", "Status", "Started", "Next Billing", "Frequency", "Amount", "Notes", "Actions"]} empty="No customer subscriptions yet." rows={data.productSubscriptions.map((subscription) => (
           <tr key={subscription.id}>
             <td>{subscription.customerName}</td>
             <td>{subscription.productName}</td>
@@ -153,12 +153,13 @@ export function Products({ data, editing, isEditing, setEditValue, startEdit, ca
             <td>{frequencyText(subscription)}</td>
             <td className="amount">{money.format(subscription.amount || 0)}</td>
             <td>{subscription.notes || ""}</td>
+            <td><DeleteButton title="Delete customer subscription" onDelete={() => deleteRecord(`/api/product-subscriptions/${subscription.id}`, "customer subscription")} /></td>
           </tr>
         ))} />
       </Panel>
 
       <Panel title="Inventory Movements" action={<a className="ghost link-button" href="/api/reports/inventory-movements.csv">Inventory CSV</a>}>
-        <Table columns={["Date", "Product", "Type", "Quantity", "Unit Cost", "Notes"]} empty="No inventory movements yet." rows={data.inventoryMovements.map((movement) => (
+        <Table columns={["Date", "Product", "Type", "Quantity", "Unit Cost", "Notes", "Actions"]} empty="No inventory movements yet." rows={data.inventoryMovements.map((movement) => (
           <tr key={movement.id}>
             <td>{movement.movementOn}</td>
             <td>{movement.productName}</td>
@@ -166,6 +167,7 @@ export function Products({ data, editing, isEditing, setEditValue, startEdit, ca
             <td className={movement.type === "sale" ? "amount negative" : "amount"}>{movement.type === "sale" ? `-${movement.quantity}` : movement.quantity}</td>
             <td className="amount">{money.format(movement.unitCost || 0)}</td>
             <td>{movement.notes || ""}</td>
+            <td><DeleteButton title="Delete inventory movement" onDelete={() => deleteRecord(`/api/inventory-movements/${movement.id}`, "inventory movement")} /></td>
           </tr>
         ))} />
       </Panel>

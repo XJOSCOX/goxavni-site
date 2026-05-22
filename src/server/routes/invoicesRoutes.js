@@ -34,6 +34,16 @@ export function registerInvoicesRoutes(app, { store, requireAuth, requireRole })
     }
   });
 
+  app.delete("/api/invoices/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteRecord("invoices", Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "invoice", entityId: id, summary: "Invoice deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   app.post("/api/invoices/:id/mark-paid", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
     try {
       const transactionId = await store.markInvoicePaid(Number(req.params.id), req.user.id);

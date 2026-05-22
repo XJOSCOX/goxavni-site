@@ -33,4 +33,14 @@ export function registerContactsRoutes(app, { store, requireAuth, requireRole })
       return next(error);
     }
   });
+
+  app.delete("/api/contacts/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteRecord("contacts", Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "contact", entityId: id, summary: "Contact deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
 }

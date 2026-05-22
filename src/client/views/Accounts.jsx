@@ -1,10 +1,10 @@
 import React from "react";
 import { Edit3 } from "lucide-react";
-import { EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
+import { DeleteButton, EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
 
 const accountTypeOptions = [["asset", "Asset"], ["liability", "Liability"], ["equity", "Equity"], ["revenue", "Revenue"], ["expense", "Expense"]];
 
-export function Accounts({ data, canOwn, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage }) {
+export function Accounts({ data, canOwn, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, setMessage }) {
   return (
     <section className="view">
       <Panel title="New Account" action={!canOwn && <span className="role-note">Only owners can change accounts and categories</span>}>
@@ -32,7 +32,7 @@ export function Accounts({ data, canOwn, editing, isEditing, setEditValue, start
               <td>{account.name}</td>
               <td>{account.type}</td>
               <td>{account.active ? "Active" : "Inactive"}</td>
-              <td>{canOwn && <button className="icon-button ghost" type="button" title="Edit account" onClick={() => startEdit("account", account.id, { code: account.code, name: account.name, type: account.type, active: String(account.active) })}><Edit3 size={15} /></button>}</td>
+              <td>{canOwn && <div className="row-actions"><button className="icon-button ghost" type="button" title="Edit account" onClick={() => startEdit("account", account.id, { code: account.code, name: account.name, type: account.type, active: String(account.active) })}><Edit3 size={15} /></button><DeleteButton title="Delete account" onDelete={() => deleteRecord(`/api/accounts/${account.id}`, "account")} /></div>}</td>
             </tr>
           );
         })} />

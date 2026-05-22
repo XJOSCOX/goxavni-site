@@ -21,4 +21,14 @@ export function registerCloseRoutes(app, { store, requireAuth, requireRole }) {
       return next(error);
     }
   });
+
+  app.delete("/api/monthly-closes/:id", requireAuth, requireRole(["owner"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteRecord("monthly_closes", Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "monthly_close", entityId: id, summary: "Monthly close deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
 }

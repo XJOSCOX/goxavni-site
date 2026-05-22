@@ -1,9 +1,9 @@
 import React from "react";
 import { Edit3 } from "lucide-react";
-import { CategorySelect, EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
+import { CategorySelect, DeleteButton, EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
 import { money, payload } from "../api.js";
 
-export function Transactions({ data, canManage, assetAccounts, revenueAccounts, expenseAccounts, editing, isEditing, setEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage }) {
+export function Transactions({ data, canManage, assetAccounts, revenueAccounts, expenseAccounts, editing, isEditing, setEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, setMessage }) {
   return (
     <section className="view">
       <Panel title="New Transaction">
@@ -42,7 +42,7 @@ export function Transactions({ data, canManage, assetAccounts, revenueAccounts, 
           ) : (
             <tr key={tx.id}>
               <td>{tx.occurredOn}</td><td>{tx.party}</td><td>{tx.description}</td><td>{tx.categoryAccount}</td><td className={`amount ${tx.type === "income" ? "positive" : "negative"}`}>{tx.type === "expense" ? "-" : ""}{money.format(tx.amount)}</td>
-              <td>{canManage && <button className="icon-button ghost" type="button" title="Edit transaction" onClick={() => startEdit("transaction", tx.id, { occurredOn: tx.occurredOn, type: tx.type, amount: tx.amount, party: tx.party, description: tx.description, reference: tx.reference || "", paymentAccountId: tx.paymentAccountId, categoryAccountId: tx.categoryAccountId })}><Edit3 size={15} /></button>}</td>
+              <td>{canManage && <div className="row-actions"><button className="icon-button ghost" type="button" title="Edit transaction" onClick={() => startEdit("transaction", tx.id, { occurredOn: tx.occurredOn, type: tx.type, amount: tx.amount, party: tx.party, description: tx.description, reference: tx.reference || "", paymentAccountId: tx.paymentAccountId, categoryAccountId: tx.categoryAccountId })}><Edit3 size={15} /></button><DeleteButton title="Delete transaction" onDelete={() => deleteRecord(`/api/transactions/${tx.id}`, "transaction")} /></div>}</td>
             </tr>
           );
         })} />

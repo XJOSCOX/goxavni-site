@@ -36,4 +36,14 @@ export function registerRemindersRoutes(app, { store, requireAuth }) {
       return next(error);
     }
   });
+
+  app.delete("/api/reminders/:id", requireAuth, async (req, res, next) => {
+    try {
+      const id = await store.deleteRecord("reminders", Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "reminder", entityId: id, summary: "Reminder deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
 }

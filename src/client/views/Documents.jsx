@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ExternalLink, Upload } from "lucide-react";
-import { Input, Panel, Select, Table } from "../components.jsx";
+import { DeleteButton, Input, Panel, Select, Table } from "../components.jsx";
 import { api, messageForError, payload } from "../api.js";
 
 const entityOptions = [
@@ -21,7 +21,7 @@ async function fileToBase64(file) {
   });
 }
 
-export function Documents({ data, submit, setMessage, refreshData }) {
+export function Documents({ data, submit, deleteRecord, setMessage, refreshData }) {
   const [uploading, setUploading] = useState(false);
 
   return (
@@ -79,7 +79,7 @@ export function Documents({ data, submit, setMessage, refreshData }) {
       </Panel>
 
       <Panel title="Documents">
-        <Table columns={["Label", "Record", "Source", "Created By", "Notes"]} empty="No documents yet." rows={data.documents.map((document) => (
+        <Table columns={["Label", "Record", "Source", "Created By", "Notes", "Actions"]} empty="No documents yet." rows={data.documents.map((document) => (
           <tr key={document.id}>
             <td>{document.label}</td>
             <td>{document.entityType} #{document.entityId}</td>
@@ -90,6 +90,7 @@ export function Documents({ data, submit, setMessage, refreshData }) {
             </td>
             <td>{document.createdBy}</td>
             <td>{document.notes || ""}</td>
+            <td><DeleteButton title="Delete document" onDelete={() => deleteRecord(`/api/documents/${document.id}`, "document")} /></td>
           </tr>
         ))} />
       </Panel>

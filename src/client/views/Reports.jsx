@@ -1,6 +1,6 @@
 import React from "react";
 import { Download } from "lucide-react";
-import { Input, Metric, Panel, Table } from "../components.jsx";
+import { DeleteButton, Input, Metric, Panel, Table } from "../components.jsx";
 import { api, messageForError, money, payload } from "../api.js";
 
 function queryFrom(values, map = {}) {
@@ -25,7 +25,7 @@ function BalanceSection({ title, rows }) {
   );
 }
 
-export function Reports({ data, setData, setMessage, refreshData, canOwn }) {
+export function Reports({ data, setData, setMessage, refreshData, canOwn, deleteRecord }) {
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -118,13 +118,14 @@ export function Reports({ data, setData, setMessage, refreshData, canOwn }) {
             <div className="form-actions"><button type="submit">Close month</button></div>
           </form>
         )}
-        <Table columns={["Period", "Closed On", "Created By", "Created At", "Net"]} empty="No monthly closes yet." rows={(data.monthlyCloses || []).map((close) => (
+        <Table columns={["Period", "Closed On", "Created By", "Created At", "Net", "Actions"]} empty="No monthly closes yet." rows={(data.monthlyCloses || []).map((close) => (
           <tr key={close.id}>
             <td>{close.period}</td>
             <td>{close.closedOn}</td>
             <td>{close.createdBy}</td>
             <td>{new Date(close.createdAt).toLocaleString()}</td>
             <td className="amount">{money.format(close.summary?.profitLoss?.net || 0)}</td>
+            <td>{canOwn && <DeleteButton title="Delete monthly close" onDelete={() => deleteRecord(`/api/monthly-closes/${close.id}`, "monthly close")} />}</td>
           </tr>
         ))} />
       </Panel>

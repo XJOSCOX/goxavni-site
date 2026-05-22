@@ -35,6 +35,16 @@ export function registerTimesheetsRoutes(app, { store, requireAuth, requireRole 
       return next(error);
     }
   });
+
+  app.delete("/api/timesheets/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteRecord("timesheets", Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "timesheet", entityId: id, summary: "Timesheet deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
   
   app.post("/api/timesheets/:id/approve", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
     try {

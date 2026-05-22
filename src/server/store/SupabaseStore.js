@@ -114,6 +114,16 @@ export class SupabaseStore {
     if (error) throw new Error(normalizeSupabaseError(error));
   }
 
+  async deleteRecord(table, id) {
+    this.ensureConfigured();
+    const { error } = await this.admin
+      .from(table)
+      .delete()
+      .eq("id", id);
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: error.code === "23503" ? 409 : 400 });
+    return id;
+  }
+
   async listAuditLogs() {
     this.ensureConfigured();
     const { data, error } = await this.admin
@@ -491,6 +501,32 @@ export class SupabaseStore {
     return data.id;
   }
 
+  async deactivateUser({ id, actorRole, actorId }) {
+    this.ensureConfigured();
+    if (id === actorId) {
+      throw Object.assign(new Error("You cannot disable your current session."), { status: 400 });
+    }
+    const { data: target, error: targetError } = await this.admin
+      .from("users")
+      .select("id, role")
+      .eq("id", id)
+      .maybeSingle();
+    if (targetError) throw new Error(normalizeSupabaseError(targetError));
+    if (!target) throw Object.assign(new Error("User not found."), { status: 404 });
+    if (!canManageRole(actorRole, target.role)) {
+      throw Object.assign(new Error("Your role cannot disable that user."), { status: 403 });
+    }
+
+    const { data, error } = await this.admin
+      .from("users")
+      .update({ active: false })
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
   async getMemberForUser(userId) {
     this.ensureConfigured();
     const { data, error } = await this.admin
@@ -832,6 +868,32 @@ export class SupabaseStore {
       .single();
     if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
     return data.id;
+  }
+
+  async deleteMemberPayment(id) {
+    this.ensureConfigured();
+    const { data: current, error: currentError } = await this.admin
+      .from("member_payments")
+      .select("id, transaction_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (currentError) throw new Error(normalizeSupabaseError(currentError));
+    if (!current) throw Object.assign(new Error("Member payment not found."), { status: 404 });
+
+    const { error } = await this.admin
+      .from("member_payments")
+      .delete()
+      .eq("id", id);
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+
+    if (current.transaction_id) {
+      const { error: transactionError } = await this.admin
+        .from("transactions")
+        .delete()
+        .eq("id", current.transaction_id);
+      if (transactionError) throw Object.assign(new Error(normalizeSupabaseError(transactionError)), { status: 400 });
+    }
+    return id;
   }
 
   async listSubscriptions() {
@@ -1182,6 +1244,40 @@ export class SupabaseStore {
     return data.id;
   }
 
+  async deleteInventoryMovement(id) {
+    this.ensureConfigured();
+    const { data: movement, error: findError } = await this.admin
+      .from("inventory_movements")
+      .select("id, product_id, type, quantity, product:product_id(stock_quantity)")
+      .eq("id", id)
+      .maybeSingle();
+    if (findError) throw new Error(normalizeSupabaseError(findError));
+    if (!movement) throw Object.assign(new Error("Inventory movement not found."), { status: 404 });
+
+    const originalChange = ["purchase", "return"].includes(movement.type)
+      ? movement.quantity
+      : movement.type === "sale"
+        ? -movement.quantity
+        : movement.quantity;
+    const nextStock = Number(movement.product?.stock_quantity || 0) - originalChange;
+    if (nextStock < 0) {
+      throw Object.assign(new Error("Deleting this movement would make inventory negative."), { status: 400 });
+    }
+
+    const { error } = await this.admin
+      .from("inventory_movements")
+      .delete()
+      .eq("id", id);
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+
+    const { error: updateError } = await this.admin
+      .from("products")
+      .update({ stock_quantity: nextStock })
+      .eq("id", movement.product_id);
+    if (updateError) throw Object.assign(new Error(normalizeSupabaseError(updateError)), { status: 400 });
+    return id;
+  }
+
   async listContacts() {
     this.ensureConfigured();
     const { data, error } = await this.admin
@@ -1466,6 +1562,28 @@ export class SupabaseStore {
       entityId: document.entityId,
       notes: document.notes
     }, userId);
+  }
+
+  async deleteDocument(id) {
+    this.ensureConfigured();
+    const { data: document, error: findError } = await this.admin
+      .from("documents")
+      .select("id, storage_bucket, storage_path")
+      .eq("id", id)
+      .maybeSingle();
+    if (findError) throw new Error(normalizeSupabaseError(findError));
+    if (!document) throw Object.assign(new Error("Document not found."), { status: 404 });
+
+    const { error } = await this.admin
+      .from("documents")
+      .delete()
+      .eq("id", id);
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+
+    if (document.storage_bucket && document.storage_path) {
+      await this.admin.storage.from(document.storage_bucket).remove([document.storage_path]);
+    }
+    return id;
   }
 
   async listReminders({ from, to, includeDone = true, actor } = {}) {

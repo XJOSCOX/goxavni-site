@@ -1,9 +1,9 @@
 import React from "react";
 import { Edit3 } from "lucide-react";
-import { EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
+import { DeleteButton, EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
 import { money } from "../api.js";
 
-export function Timesheets({ data, activeMembers, canManage, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage }) {
+export function Timesheets({ data, activeMembers, canManage, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, setMessage }) {
   return (
     <section className="view">
       <Panel title="New Timesheet">
@@ -39,7 +39,7 @@ export function Timesheets({ data, activeMembers, canManage, editing, isEditing,
               <td className="amount">{entry.hours}</td>
               <td className="amount">{money.format(entry.amount || 0)}</td>
               <td>{entry.status}</td>
-              <td>{canManage && <button className="icon-button ghost" type="button" title="Edit timesheet" onClick={() => startEdit("timesheet", entry.id, { memberId: entry.memberId, workDate: entry.workDate, hours: entry.hours, hourlyRate: entry.hourlyRate || 0, project: entry.project || "", notes: entry.notes || "", status: entry.status })}><Edit3 size={15} /></button>}</td>
+              <td>{canManage && <div className="row-actions"><button className="icon-button ghost" type="button" title="Edit timesheet" onClick={() => startEdit("timesheet", entry.id, { memberId: entry.memberId, workDate: entry.workDate, hours: entry.hours, hourlyRate: entry.hourlyRate || 0, project: entry.project || "", notes: entry.notes || "", status: entry.status })}><Edit3 size={15} /></button><DeleteButton title="Delete timesheet" onDelete={() => deleteRecord(`/api/timesheets/${entry.id}`, "timesheet")} /></div>}</td>
             </tr>
           );
         })} />

@@ -1,6 +1,6 @@
 import React from "react";
 import { CheckCircle, Edit3 } from "lucide-react";
-import { EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
+import { DeleteButton, EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
 import { api, messageForError, money } from "../api.js";
 
 const frequencyOptions = [["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"]];
@@ -11,7 +11,7 @@ function frequencyText(subscription) {
   return `Every ${subscription.frequencyEvery} ${label}`;
 }
 
-export function Subscriptions({ data, assetAccounts, expenseAccounts, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, refreshData, setMessage }) {
+export function Subscriptions({ data, assetAccounts, expenseAccounts, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, refreshData, setMessage }) {
   const activeTotal = data.subscriptions
     .filter((subscription) => subscription.active)
     .reduce((total, subscription) => total + Number(subscription.amount || 0), 0);
@@ -96,6 +96,7 @@ export function Subscriptions({ data, assetAccounts, expenseAccounts, editing, i
                 <div className="row-actions">
                   <button className="icon-button ghost" type="button" title="Edit subscription" onClick={() => startEdit("subscription", subscription.id, { vendor: subscription.vendor, description: subscription.description, amount: subscription.amount, paymentAccountId: subscription.paymentAccountId, expenseAccountId: subscription.expenseAccountId, frequencyEvery: subscription.frequencyEvery, frequencyUnit: subscription.frequencyUnit, startOn: subscription.startOn, nextDueOn: subscription.nextDueOn, endOn: subscription.endOn || "", reference: subscription.reference || "", notes: subscription.notes || "", active: String(subscription.active) })}><Edit3 size={15} /></button>
                   {subscription.active && <button className="ghost" type="button" title={`Create expense transaction for ${subscription.nextDueOn}`} onClick={() => markPaid(subscription)}><CheckCircle size={15} /> Mark paid</button>}
+                  <DeleteButton title="Delete subscription" onDelete={() => deleteRecord(`/api/subscriptions/${subscription.id}`, "subscription")} />
                 </div>
               </td>
             </tr>

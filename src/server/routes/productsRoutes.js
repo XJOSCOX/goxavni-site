@@ -39,6 +39,16 @@ export function registerProductsRoutes(app, { store, requireAuth, requireRole })
     }
   });
 
+  app.delete("/api/products/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteRecord("products", Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "product", entityId: id, summary: "Product deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   app.post("/api/product-subscriptions", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
     try {
       const parsed = validateCustomerSubscription(req.body);
@@ -51,6 +61,16 @@ export function registerProductsRoutes(app, { store, requireAuth, requireRole })
     }
   });
 
+  app.delete("/api/product-subscriptions/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteRecord("customer_subscriptions", Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "customer_subscription", entityId: id, summary: "Customer subscription deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   app.post("/api/inventory-movements", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
     try {
       const parsed = validateInventoryMovement(req.body);
@@ -58,6 +78,16 @@ export function registerProductsRoutes(app, { store, requireAuth, requireRole })
       const id = await store.createInventoryMovement(parsed.value, req.user.id);
       await store.createAuditLog({ actorId: req.user.id, action: "create", entityType: "inventory_movement", entityId: id, summary: `${parsed.value.type} ${parsed.value.quantity}` });
       return res.status(201).json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  app.delete("/api/inventory-movements/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteInventoryMovement(Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "inventory_movement", entityId: id, summary: "Inventory movement deleted" });
+      return res.json({ id });
     } catch (error) {
       return next(error);
     }

@@ -238,6 +238,19 @@ function Bookkeeper() {
     }
   }
 
+  async function deleteRecord(endpoint, label = "record") {
+    setMessage("");
+    if (!window.confirm(`Delete this ${label}? This cannot be undone.`)) return;
+    try {
+      await api(endpoint, { method: "DELETE" });
+      setEditing(null);
+      await loadCore();
+      flash(`${label.charAt(0).toUpperCase() + label.slice(1)} deleted.`);
+    } catch (error) {
+      setMessage(messageForError(error));
+    }
+  }
+
   useEffect(() => {
     api("/api/me")
       .then((result) => {
@@ -273,7 +286,7 @@ function Bookkeeper() {
     return <Auth systemMessage={message} onAuth={(nextUser, nextProvider) => { setMessage(""); setUser(nextUser); setProvider(nextProvider); loadCore(nextUser).catch(() => {}); }} />;
   }
 
-  const editTools = { editing, isEditing, setEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage };
+  const editTools = { editing, isEditing, setEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, setMessage };
   const navItems = [
     ["dashboard", "Dashboard", true],
     ["smart", "Smart", true],
@@ -341,7 +354,7 @@ function Bookkeeper() {
         {view === "documents" && <Documents data={data} refreshData={loadCore} {...editTools} />}
         {view === "products" && <Products data={data} refreshData={loadCore} {...editTools} />}
         {view === "subscriptions" && <Subscriptions data={data} assetAccounts={assetAccounts} expenseAccounts={expenseAccounts} refreshData={loadCore} {...editTools} />}
-        {view === "reports" && <Reports data={data} setData={setData} setMessage={setMessage} refreshData={loadCore} canOwn={canOwn} />}
+        {view === "reports" && <Reports data={data} setData={setData} setMessage={setMessage} refreshData={loadCore} canOwn={canOwn} deleteRecord={deleteRecord} />}
         {view === "accounts" && <Accounts data={data} canOwn={canOwn} {...editTools} />}
         {view === "users" && <Users user={user} data={data} roleOptions={roleOptions} {...editTools} />}
         {view === "audit" && <AuditLogs data={data} />}

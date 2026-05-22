@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Save, X } from "lucide-react";
+import { Save, Trash2, X } from "lucide-react";
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -133,6 +133,10 @@ export function EditActions({ onSave, onCancel }) {
       <button className="icon-button ghost" type="button" title="Cancel" onClick={onCancel}><X size={15} /></button>
     </div>
   );
+}
+
+export function DeleteButton({ onDelete, title = "Delete" }) {
+  return <button className="icon-button ghost danger-button" type="button" title={title} onClick={onDelete}><Trash2 size={15} /></button>;
 }
 
 export function CategorySelect({ income, expense }) {

@@ -34,4 +34,14 @@ export function registerMembersRoutes(app, { store, requireAuth, requireRole }) 
       return next(error);
     }
   });
+
+  app.delete("/api/members/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteRecord("members", Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "member", entityId: id, summary: "Member deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
 }

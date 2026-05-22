@@ -34,6 +34,16 @@ export function registerTransactionsRoutes(app, { store, requireAuth, requireRol
       return next(error);
     }
   });
+
+  app.delete("/api/transactions/:id", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteRecord("transactions", Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "transaction", entityId: id, summary: "Transaction deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
   
   app.get("/api/summary", requireAuth, async (req, res, next) => {
     try {

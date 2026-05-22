@@ -1,9 +1,9 @@
 import React from "react";
 import { Edit3 } from "lucide-react";
-import { EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
+import { DeleteButton, EditActions, EditInput, EditSelect, Input, Panel, Select, Table } from "../components.jsx";
 import { money } from "../api.js";
 
-export function Payments({ data, activeMembers, assetAccounts, expenseAccounts, canOwn, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, submit, setMessage }) {
+export function Payments({ data, activeMembers, assetAccounts, expenseAccounts, canOwn, editing, isEditing, setEditValue, startEdit, cancelEdit, saveEdit, deleteRecord, submit, setMessage }) {
   return (
     <section className="view">
       <Panel title="Pay Member" action={!canOwn && <span className="role-note">Only owners can record payments</span>}>
@@ -47,7 +47,7 @@ export function Payments({ data, activeMembers, assetAccounts, expenseAccounts, 
               <td>{payment.memberName}</td>
               <td>{payment.reference || ""}</td>
               <td className="amount negative">-{money.format(payment.amount)}</td>
-              <td>{canOwn && <button className="icon-button ghost" type="button" title="Edit payment" onClick={() => startEdit("payment", payment.id, { memberId: payment.memberId, paidOn: payment.paidOn, amount: payment.amount, paymentAccountId: payment.paymentAccountId, expenseAccountId: payment.expenseAccountId, periodStart: payment.periodStart || "", periodEnd: payment.periodEnd || "", reference: payment.reference || "", notes: payment.notes || "" })}><Edit3 size={15} /></button>}</td>
+              <td>{canOwn && <div className="row-actions"><button className="icon-button ghost" type="button" title="Edit payment" onClick={() => startEdit("payment", payment.id, { memberId: payment.memberId, paidOn: payment.paidOn, amount: payment.amount, paymentAccountId: payment.paymentAccountId, expenseAccountId: payment.expenseAccountId, periodStart: payment.periodStart || "", periodEnd: payment.periodEnd || "", reference: payment.reference || "", notes: payment.notes || "" })}><Edit3 size={15} /></button><DeleteButton title="Delete payment" onDelete={() => deleteRecord(`/api/member-payments/${payment.id}`, "member payment")} /></div>}</td>
             </tr>
           );
         })} />

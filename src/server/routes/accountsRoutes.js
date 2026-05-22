@@ -34,4 +34,14 @@ export function registerAccountsRoutes(app, { store, requireAuth, requireRole })
       return next(error);
     }
   });
+
+  app.delete("/api/accounts/:id", requireAuth, requireRole(["owner"]), async (req, res, next) => {
+    try {
+      const id = await store.deleteRecord("accounts", Number(req.params.id));
+      await store.createAuditLog({ actorId: req.user.id, action: "delete", entityType: "account", entityId: id, summary: "Account deleted" });
+      return res.json({ id });
+    } catch (error) {
+      return next(error);
+    }
+  });
 }
