@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { accountTypes, contactTypes, invoiceStatuses, recurrenceUnits, reminderPriorities, reminderStatuses, transactionTypes } from "./config.js";
+import { accountTypes, contactTypes, customerSubscriptionStatuses, inventoryMovementTypes, invoiceStatuses, productPlatforms, productTypes, recurrenceUnits, reminderPriorities, reminderStatuses, transactionTypes } from "./config.js";
 import { centsFromInput, parseBoolean } from "./utils.js";
 
 export function codeHash(code) {
@@ -152,6 +152,102 @@ export function validateSubscription(body) {
       reference: reference || null,
       notes: notes || null,
       active
+    }
+  };
+}
+
+export function validateProduct(body) {
+  const sku = String(body.sku || "").trim();
+  const name = String(body.name || "").trim();
+  const type = String(body.type || "").trim();
+  const platform = String(body.platform || "").trim();
+  const description = String(body.description || "").trim();
+  const priceCents = centsFromInput(body.price);
+  const costCents = centsFromInput(body.cost || 0) || 0;
+  const stockQuantity = Number(body.stockQuantity || 0);
+  const reorderLevel = Number(body.reorderLevel || 0);
+  const active = parseBoolean(body.active, true);
+
+  if (!name) return { error: "Product name is required." };
+  if (!productTypes.includes(type)) return { error: "Choose a valid product type." };
+  if (platform && !productPlatforms.includes(platform)) return { error: "Choose a valid platform." };
+  if (!priceCents) return { error: "Price must be greater than zero." };
+  if (!Number.isInteger(stockQuantity) || stockQuantity < 0) return { error: "Stock must be zero or higher." };
+  if (!Number.isInteger(reorderLevel) || reorderLevel < 0) return { error: "Reorder level must be zero or higher." };
+
+  return {
+    value: {
+      sku: sku || null,
+      name,
+      type,
+      platform: platform || null,
+      description: description || null,
+      priceCents,
+      costCents,
+      stockQuantity,
+      reorderLevel,
+      active
+    }
+  };
+}
+
+export function validateCustomerSubscription(body) {
+  const customerId = Number(body.customerId);
+  const productId = Number(body.productId);
+  const status = String(body.status || "active").trim();
+  const startedOn = String(body.startedOn || "").trim();
+  const nextBillingOn = String(body.nextBillingOn || "").trim();
+  const billingEvery = Number(body.billingEvery || 1);
+  const billingUnit = String(body.billingUnit || "").trim();
+  const amountCents = centsFromInput(body.amount);
+  const notes = String(body.notes || "").trim();
+
+  if (!Number.isFinite(customerId) || customerId <= 0) return { error: "Customer is required." };
+  if (!Number.isFinite(productId) || productId <= 0) return { error: "Product is required." };
+  if (!customerSubscriptionStatuses.includes(status)) return { error: "Choose a valid subscription status." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startedOn)) return { error: "Enter a valid start date." };
+  if (nextBillingOn && !/^\d{4}-\d{2}-\d{2}$/.test(nextBillingOn)) return { error: "Enter a valid next billing date." };
+  if (!Number.isInteger(billingEvery) || billingEvery <= 0 || billingEvery > 365) return { error: "Billing every must be between 1 and 365." };
+  if (!recurrenceUnits.includes(billingUnit)) return { error: "Choose day, week, month, or year." };
+  if (!amountCents) return { error: "Subscription amount must be greater than zero." };
+
+  return {
+    value: {
+      customerId,
+      productId,
+      status,
+      startedOn,
+      nextBillingOn: nextBillingOn || null,
+      billingEvery,
+      billingUnit,
+      amountCents,
+      notes: notes || null
+    }
+  };
+}
+
+export function validateInventoryMovement(body) {
+  const productId = Number(body.productId);
+  const movementOn = String(body.movementOn || "").trim();
+  const type = String(body.type || "").trim();
+  const quantity = Number(body.quantity);
+  const unitCostCents = centsFromInput(body.unitCost || 0) || 0;
+  const notes = String(body.notes || "").trim();
+
+  if (!Number.isFinite(productId) || productId <= 0) return { error: "Product is required." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(movementOn)) return { error: "Enter a valid inventory date." };
+  if (!inventoryMovementTypes.includes(type)) return { error: "Choose a valid movement type." };
+  if (!Number.isInteger(quantity) || quantity === 0) return { error: "Quantity must be a non-zero whole number." };
+  if (type !== "adjustment" && quantity <= 0) return { error: "Quantity must be greater than zero for this movement type." };
+
+  return {
+    value: {
+      productId,
+      movementOn,
+      type,
+      quantity,
+      unitCostCents,
+      notes: notes || null
     }
   };
 }

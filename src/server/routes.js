@@ -10,6 +10,7 @@ import { registerHealthRoutes } from "./routes/healthRoutes.js";
 import { registerInvoicesRoutes } from "./routes/invoicesRoutes.js";
 import { registerMembersRoutes } from "./routes/membersRoutes.js";
 import { registerPaymentsRoutes } from "./routes/paymentsRoutes.js";
+import { registerProductsRoutes } from "./routes/productsRoutes.js";
 import { registerReportsRoutes } from "./routes/reportsRoutes.js";
 import { registerRemindersRoutes } from "./routes/remindersRoutes.js";
 import { registerSmartRoutes } from "./routes/smartRoutes.js";
@@ -34,6 +35,7 @@ export function registerRoutes(app, store) {
   registerContactsRoutes(app, context);
   registerInvoicesRoutes(app, context);
   registerDocumentsRoutes(app, context);
+  registerProductsRoutes(app, context);
   registerTransactionsRoutes(app, context);
   registerUsersRoutes(app, context);
   registerMembersRoutes(app, context);

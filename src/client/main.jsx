@@ -16,6 +16,7 @@ import { Documents } from "./views/Documents.jsx";
 import { Invoices } from "./views/Invoices.jsx";
 import { Members } from "./views/Members.jsx";
 import { Payments } from "./views/Payments.jsx";
+import { Products } from "./views/Products.jsx";
 import { Reminders } from "./views/Reminders.jsx";
 import { Reports } from "./views/Reports.jsx";
 import { Smart } from "./views/Smart.jsx";
@@ -49,6 +50,9 @@ function Bookkeeper() {
     contacts: [],
     invoices: [],
     documents: [],
+    products: [],
+    productSubscriptions: [],
+    inventoryMovements: [],
     auditLogs: [],
     reminders: [],
     calendar: { from: "", to: "", events: [] },
@@ -118,6 +122,9 @@ function Bookkeeper() {
         contacts: [],
         invoices: [],
         documents: [],
+        products: [],
+        productSubscriptions: [],
+        inventoryMovements: [],
         auditLogs: [],
         reminders: reminders.reminders,
         calendar: calendar.calendar,
@@ -129,13 +136,14 @@ function Bookkeeper() {
         monthlyCloses: []
       };
       if (["owner", "manager"].includes(currentUser?.role)) {
-        const [users, payments, subscriptions, contacts, invoices, documents, report, balanceSheet, cashFlow, monthlyCloses] = await Promise.all([
+        const [users, payments, subscriptions, contacts, invoices, documents, products, report, balanceSheet, cashFlow, monthlyCloses] = await Promise.all([
           api("/api/users"),
           api("/api/member-payments"),
           api("/api/subscriptions"),
           api("/api/contacts"),
           api("/api/invoices"),
           api("/api/documents"),
+          api("/api/products"),
           api("/api/reports/profit-loss"),
           api("/api/reports/balance-sheet"),
           api("/api/reports/cash-flow"),
@@ -147,6 +155,9 @@ function Bookkeeper() {
         next.contacts = contacts.contacts;
         next.invoices = invoices.invoices;
         next.documents = documents.documents;
+        next.products = products.products;
+        next.productSubscriptions = products.productSubscriptions;
+        next.inventoryMovements = products.inventoryMovements;
         next.report = report.report;
         next.balanceSheet = balanceSheet.report;
         next.cashFlow = cashFlow.report;
@@ -275,6 +286,7 @@ function Bookkeeper() {
     ["contacts", "Contacts", canManage],
     ["invoices", "Invoices", canManage],
     ["documents", "Documents", canManage],
+    ["products", "Products", canManage],
     ["subscriptions", "Subscriptions", canManage],
     ["reports", "Reports", canManage],
     ["accounts", "Accounts", true],
@@ -327,6 +339,7 @@ function Bookkeeper() {
         {view === "contacts" && <Contacts data={data} {...editTools} />}
         {view === "invoices" && <Invoices data={data} customers={customers} assetAccounts={assetAccounts} revenueAccounts={revenueAccounts} refreshData={loadCore} {...editTools} />}
         {view === "documents" && <Documents data={data} refreshData={loadCore} {...editTools} />}
+        {view === "products" && <Products data={data} refreshData={loadCore} {...editTools} />}
         {view === "subscriptions" && <Subscriptions data={data} assetAccounts={assetAccounts} expenseAccounts={expenseAccounts} refreshData={loadCore} {...editTools} />}
         {view === "reports" && <Reports data={data} setData={setData} setMessage={setMessage} refreshData={loadCore} canOwn={canOwn} />}
         {view === "accounts" && <Accounts data={data} canOwn={canOwn} {...editTools} />}

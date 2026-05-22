@@ -220,4 +220,68 @@ export function registerReportsRoutes(app, { store, requireAuth, requireRole }) 
       next(error);
     }
   });
+
+  app.get("/api/reports/products.csv", requireAuth, requireRole(["owner", "manager"]), async (_req, res, next) => {
+    try {
+      const products = await store.listProducts();
+      sendCsv(res, "goxavni-products.csv", [
+        ["SKU", "Name", "Type", "Platform", "Price", "Cost", "Stock", "Reorder Level", "Status", "Description"],
+        ...products.map((product) => [
+          product.sku || "",
+          product.name,
+          product.type,
+          product.platform || "",
+          product.price,
+          product.cost,
+          product.stockQuantity,
+          product.reorderLevel,
+          product.active ? "Active" : "Inactive",
+          product.description || ""
+        ])
+      ]);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/reports/customer-subscriptions.csv", requireAuth, requireRole(["owner", "manager"]), async (_req, res, next) => {
+    try {
+      const subscriptions = await store.listCustomerSubscriptions();
+      sendCsv(res, "goxavni-customer-subscriptions.csv", [
+        ["Customer", "Product", "Status", "Started", "Next Billing", "Every", "Unit", "Amount", "Notes"],
+        ...subscriptions.map((subscription) => [
+          subscription.customerName,
+          subscription.productName,
+          subscription.status,
+          subscription.startedOn,
+          subscription.nextBillingOn || "",
+          subscription.billingEvery,
+          subscription.billingUnit,
+          subscription.amount,
+          subscription.notes || ""
+        ])
+      ]);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/reports/inventory-movements.csv", requireAuth, requireRole(["owner", "manager"]), async (_req, res, next) => {
+    try {
+      const movements = await store.listInventoryMovements();
+      sendCsv(res, "goxavni-inventory-movements.csv", [
+        ["Date", "Product", "Type", "Quantity", "Unit Cost", "Notes"],
+        ...movements.map((movement) => [
+          movement.movementOn,
+          movement.productName,
+          movement.type,
+          movement.quantity,
+          movement.unitCost,
+          movement.notes || ""
+        ])
+      ]);
+    } catch (error) {
+      next(error);
+    }
+  });
 }

@@ -19,6 +19,10 @@ export const reminderPriorities = ["low", "normal", "high", "urgent"];
 export const reminderStatuses = ["open", "done"];
 export const contactTypes = ["customer", "vendor"];
 export const invoiceStatuses = ["draft", "sent", "paid", "overdue", "void"];
+export const productTypes = ["app", "subscription", "resale", "inventory", "service"];
+export const productPlatforms = ["android", "ios", "web", "physical", "mixed", "service"];
+export const customerSubscriptionStatuses = ["active", "paused", "canceled", "expired"];
+export const inventoryMovementTypes = ["purchase", "sale", "adjustment", "return"];
 export const sessionSecret = process.env.SESSION_SECRET || "local-dev-change-this-secret";
 export const hasSupabaseConfig = Boolean(
   process.env.SUPABASE_URL &&

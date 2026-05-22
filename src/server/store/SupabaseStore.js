@@ -971,6 +971,217 @@ export class SupabaseStore {
     return { transactionId: transaction.id, nextDueOn, active: !shouldDeactivate };
   }
 
+  async listProducts() {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("products")
+      .select("id, sku, name, type, platform, description, price_cents, cost_cents, stock_quantity, reorder_level, active, created_at")
+      .order("active", { ascending: false })
+      .order("type")
+      .order("name");
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data.map((product) => ({
+      id: product.id,
+      sku: product.sku,
+      name: product.name,
+      type: product.type,
+      platform: product.platform,
+      description: product.description,
+      priceCents: product.price_cents,
+      price: formatMoney(product.price_cents),
+      costCents: product.cost_cents,
+      cost: formatMoney(product.cost_cents),
+      stockQuantity: product.stock_quantity,
+      reorderLevel: product.reorder_level,
+      lowStock: product.reorder_level > 0 && product.stock_quantity <= product.reorder_level,
+      active: product.active,
+      createdAt: product.created_at
+    }));
+  }
+
+  async getProduct(id) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("products")
+      .select("id, name, type, active, stock_quantity")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data;
+  }
+
+  async createProduct(product, userId) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("products")
+      .insert({
+        sku: product.sku,
+        name: product.name,
+        type: product.type,
+        platform: product.platform,
+        description: product.description,
+        price_cents: product.priceCents,
+        cost_cents: product.costCents,
+        stock_quantity: product.stockQuantity,
+        reorder_level: product.reorderLevel,
+        active: product.active,
+        created_by: userId
+      })
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: error.code === "23505" ? 409 : 400 });
+    return data.id;
+  }
+
+  async updateProduct(id, product) {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("products")
+      .update({
+        sku: product.sku,
+        name: product.name,
+        type: product.type,
+        platform: product.platform,
+        description: product.description,
+        price_cents: product.priceCents,
+        cost_cents: product.costCents,
+        stock_quantity: product.stockQuantity,
+        reorder_level: product.reorderLevel,
+        active: product.active
+      })
+      .eq("id", id)
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: error.code === "23505" ? 409 : 400 });
+    return data.id;
+  }
+
+  async listCustomerSubscriptions() {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("customer_subscriptions")
+      .select("id, customer_id, product_id, status, started_on, next_billing_on, billing_every, billing_unit, amount_cents, notes, created_at, customer:customer_id(name), product:product_id(name)")
+      .order("status", { ascending: true })
+      .order("next_billing_on", { ascending: true, nullsFirst: false })
+      .limit(300);
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data.map((subscription) => ({
+      id: subscription.id,
+      customerId: subscription.customer_id,
+      productId: subscription.product_id,
+      customerName: subscription.customer?.name || "",
+      productName: subscription.product?.name || "",
+      status: subscription.status,
+      startedOn: subscription.started_on,
+      nextBillingOn: subscription.next_billing_on,
+      billingEvery: subscription.billing_every,
+      billingUnit: subscription.billing_unit,
+      amountCents: subscription.amount_cents,
+      amount: formatMoney(subscription.amount_cents),
+      notes: subscription.notes,
+      createdAt: subscription.created_at
+    }));
+  }
+
+  async validateCustomerSubscription(subscription) {
+    const [customer, product] = await Promise.all([
+      this.getContact(subscription.customerId),
+      this.getProduct(subscription.productId)
+    ]);
+    if (!customer || customer.type !== "customer" || !customer.active) {
+      throw Object.assign(new Error("Choose an active customer."), { status: 400 });
+    }
+    if (!product || !product.active) {
+      throw Object.assign(new Error("Choose an active product."), { status: 400 });
+    }
+  }
+
+  async createCustomerSubscription(subscription, userId) {
+    this.ensureConfigured();
+    await this.validateCustomerSubscription(subscription);
+    const { data, error } = await this.admin
+      .from("customer_subscriptions")
+      .insert({
+        customer_id: subscription.customerId,
+        product_id: subscription.productId,
+        status: subscription.status,
+        started_on: subscription.startedOn,
+        next_billing_on: subscription.nextBillingOn,
+        billing_every: subscription.billingEvery,
+        billing_unit: subscription.billingUnit,
+        amount_cents: subscription.amountCents,
+        notes: subscription.notes,
+        created_by: userId
+      })
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.id;
+  }
+
+  async listInventoryMovements() {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("inventory_movements")
+      .select("id, product_id, movement_on, type, quantity, unit_cost_cents, notes, created_at, product:product_id(name)")
+      .order("movement_on", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(300);
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data.map((movement) => ({
+      id: movement.id,
+      productId: movement.product_id,
+      productName: movement.product?.name || "",
+      movementOn: movement.movement_on,
+      type: movement.type,
+      quantity: movement.quantity,
+      unitCostCents: movement.unit_cost_cents,
+      unitCost: formatMoney(movement.unit_cost_cents),
+      notes: movement.notes,
+      createdAt: movement.created_at
+    }));
+  }
+
+  async createInventoryMovement(movement, userId) {
+    this.ensureConfigured();
+    const product = await this.getProduct(movement.productId);
+    if (!product || !product.active) {
+      throw Object.assign(new Error("Choose an active product."), { status: 400 });
+    }
+
+    const stockChange = ["purchase", "return"].includes(movement.type)
+      ? movement.quantity
+      : movement.type === "sale"
+        ? -movement.quantity
+        : movement.quantity;
+    const nextStock = Number(product.stock_quantity || 0) + stockChange;
+    if (nextStock < 0) {
+      throw Object.assign(new Error("Inventory cannot go below zero."), { status: 400 });
+    }
+
+    const { data, error } = await this.admin
+      .from("inventory_movements")
+      .insert({
+        product_id: movement.productId,
+        movement_on: movement.movementOn,
+        type: movement.type,
+        quantity: movement.quantity,
+        unit_cost_cents: movement.unitCostCents,
+        notes: movement.notes,
+        created_by: userId
+      })
+      .select("id")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+
+    const { error: updateError } = await this.admin
+      .from("products")
+      .update({ stock_quantity: nextStock })
+      .eq("id", movement.productId);
+    if (updateError) throw Object.assign(new Error(normalizeSupabaseError(updateError)), { status: 400 });
+    return data.id;
+  }
+
   async listContacts() {
     this.ensureConfigured();
     const { data, error } = await this.admin

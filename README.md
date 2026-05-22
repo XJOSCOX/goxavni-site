@@ -83,6 +83,7 @@ Audit section.
 - Invoices can be created, exported, and marked paid. Marking paid creates the matching income transaction.
 - Document links and Supabase Storage uploads can be attached to records for receipts, contracts, and supporting files.
 - Active subscriptions can be posted into expense transactions and advanced to the next due date.
+- Products track apps, subscription products, resale items, inventory levels, customer subscriptions, and stock movements.
 - Reports include profit and loss, balance sheet, cash flow, CSV exports, and owner-only monthly close snapshots.
 
 ## Deployment note
