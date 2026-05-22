@@ -341,16 +341,17 @@ function Bookkeeper() {
 
       <section className="workspace">
         <section className="account-topbar" aria-label="Account summary">
-          <div className="session">
-            <div className="user-chip" aria-label="Current user">
-              <span className="avatar" aria-hidden="true">{initials(user.name)}</span>
-              <span><strong>{user.name}</strong><small>{user.role}</small></span>
-            </div>
-            <div className="topbar-stat"><span>Time</span><strong>{formatClock(now)}</strong></div>
-            <div className="topbar-stat"><span>Revenue</span><strong>{money.format(data.summary.income || 0)}</strong></div>
-            <div className={`topbar-stat ${net >= 0 ? "profit-stat" : "loss-stat"}`}><span>{netLabel}</span><strong>{money.format(Math.abs(net))}</strong></div>
-            <button className="ghost" type="button" onClick={() => logout()}><LogOut size={16} /> Sign out</button>
+          <div className="topbar-user" aria-label="Current user">
+            <span className="avatar" aria-hidden="true">{initials(user.name)}</span>
+            <span>{user.name}</span>
+            <small>{user.role}</small>
           </div>
+          <div className="topbar-summary" aria-label="Account summary totals">
+            <span>Time {formatClock(now)}</span>
+            <span>Revenue {money.format(data.summary.income || 0)}</span>
+            <span className={net >= 0 ? "profit-text" : "loss-text"}>{netLabel} {money.format(Math.abs(net))}</span>
+          </div>
+          <button className="ghost signout-button" type="button" onClick={() => logout()}><LogOut size={16} /> Sign out</button>
         </section>
 
         <header className="topbar">

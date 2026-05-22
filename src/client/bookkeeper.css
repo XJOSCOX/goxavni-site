@@ -312,7 +312,12 @@ select {
 
 .account-topbar {
   margin: 0 -28px 24px;
-  padding: 10px 28px;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: minmax(190px, 0.85fr) minmax(280px, 1.4fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 0 28px;
   color: #f7fffd;
   background: var(--sidebar);
   box-shadow: 0 1px 0 rgba(247, 255, 253, 0.08);
@@ -326,124 +331,68 @@ select {
   margin-bottom: 24px;
 }
 
-.session {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
-  gap: 10px;
-  width: 100%;
-  overflow-x: auto;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.account-topbar .session {
-  color: var(--sidebar-muted);
-}
-
-.user-chip,
-.topbar-stat {
-  min-height: 38px;
+.topbar-user,
+.topbar-summary {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #ffffff;
+  gap: 10px;
+  color: var(--sidebar-muted);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-.account-topbar .user-chip,
-.account-topbar .topbar-stat {
-  border-color: rgba(247, 255, 253, 0.16);
-  background: rgba(247, 255, 253, 0.08);
+.topbar-user {
+  overflow: hidden;
 }
 
-.user-chip {
-  flex: 0 0 auto;
-  margin-right: auto;
-  gap: 9px;
-  min-width: 210px;
-  padding: 4px 12px 4px 5px;
+.topbar-user span:not(.avatar) {
+  overflow: hidden;
+  color: #f7fffd;
+  text-overflow: ellipsis;
 }
 
 .avatar {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
   color: #f7fffd;
   background: var(--brand);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.user-chip span:last-child,
-.topbar-stat {
-  display: grid;
-  gap: 2px;
-}
-
-.user-chip strong,
-.topbar-stat strong {
-  color: var(--ink);
-  font-size: 13px;
-  line-height: 1;
-}
-
-.account-topbar .user-chip strong,
-.account-topbar .topbar-stat strong {
-  color: #f7fffd;
-}
-
-.user-chip small,
-.topbar-stat span {
-  color: var(--muted);
   font-size: 11px;
-  font-weight: 800;
-  line-height: 1;
+  font-weight: 500;
+}
+
+.topbar-user small {
+  color: var(--sidebar-muted);
+  font-size: 12px;
+  font-weight: 500;
   text-transform: uppercase;
 }
 
-.account-topbar .user-chip small,
-.account-topbar .topbar-stat span {
-  color: var(--sidebar-muted);
-}
-
-.topbar-stat {
-  flex: 0 0 auto;
-  min-width: 86px;
+.topbar-summary {
   justify-content: center;
-  padding: 7px 10px;
+  gap: 0;
+  overflow-x: auto;
 }
 
-.profit-stat {
-  border-color: #b9dfc8;
-  background: #f0fbf4;
+.topbar-summary span {
+  padding: 0 16px;
+  border-left: 1px solid rgba(247, 255, 253, 0.14);
 }
 
-.account-topbar .profit-stat {
-  border-color: rgba(122, 242, 229, 0.32);
-  background: rgba(13, 127, 115, 0.42);
+.topbar-summary span:first-child {
+  border-left: 0;
 }
 
-.profit-stat strong {
-  color: var(--good);
+.profit-text {
+  color: #7af2e5;
 }
 
-.loss-stat {
-  border-color: #ebc1c1;
-  background: #fff5f5;
-}
-
-.account-topbar .loss-stat {
-  border-color: rgba(255, 209, 209, 0.32);
-  background: rgba(159, 42, 42, 0.38);
-}
-
-.loss-stat strong {
-  color: var(--danger);
+.loss-text {
+  color: #ffb3b3;
 }
 
 .ghost {
@@ -457,14 +406,15 @@ select {
   background: var(--soft-brand);
 }
 
-.account-topbar .ghost {
-  flex: 0 0 auto;
-  border-color: rgba(247, 255, 253, 0.2);
+.account-topbar .signout-button {
+  min-height: 34px;
+  border-color: rgba(247, 255, 253, 0.18);
   color: #f7fffd;
   background: transparent;
+  font-weight: 500;
 }
 
-.account-topbar .ghost:hover {
+.account-topbar .signout-button:hover {
   color: #071615;
   background: #7af2e5;
 }
@@ -1145,7 +1095,14 @@ button svg,
     flex-direction: column;
   }
 
-  .session {
+  .account-topbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .topbar-summary {
     justify-content: flex-start;
   }
 
