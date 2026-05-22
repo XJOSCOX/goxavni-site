@@ -307,15 +307,14 @@ select {
 .workspace {
   min-width: 0;
   grid-column: 2;
-  padding: 28px;
+  padding: 0 28px 28px;
 }
 
 .account-topbar {
-  margin-bottom: 18px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px;
-  background: #ffffff;
+  margin: 0 -28px 24px;
+  padding: 12px 28px;
+  color: #f7fffd;
+  background: var(--sidebar);
 }
 
 .topbar {
@@ -339,6 +338,10 @@ select {
   font-weight: 700;
 }
 
+.account-topbar .session {
+  color: var(--sidebar-muted);
+}
+
 .user-chip,
 .topbar-stat {
   min-height: 42px;
@@ -347,6 +350,12 @@ select {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
+}
+
+.account-topbar .user-chip,
+.account-topbar .topbar-stat {
+  border-color: rgba(247, 255, 253, 0.16);
+  background: rgba(247, 255, 253, 0.08);
 }
 
 .user-chip {
@@ -380,6 +389,11 @@ select {
   line-height: 1;
 }
 
+.account-topbar .user-chip strong,
+.account-topbar .topbar-stat strong {
+  color: #f7fffd;
+}
+
 .user-chip small,
 .topbar-stat span {
   color: var(--muted);
@@ -387,6 +401,11 @@ select {
   font-weight: 800;
   line-height: 1;
   text-transform: uppercase;
+}
+
+.account-topbar .user-chip small,
+.account-topbar .topbar-stat span {
+  color: var(--sidebar-muted);
 }
 
 .topbar-stat {
@@ -401,6 +420,11 @@ select {
   background: #f0fbf4;
 }
 
+.account-topbar .profit-stat {
+  border-color: rgba(122, 242, 229, 0.32);
+  background: rgba(13, 127, 115, 0.42);
+}
+
 .profit-stat strong {
   color: var(--good);
 }
@@ -408,6 +432,11 @@ select {
 .loss-stat {
   border-color: #ebc1c1;
   background: #fff5f5;
+}
+
+.account-topbar .loss-stat {
+  border-color: rgba(255, 209, 209, 0.32);
+  background: rgba(159, 42, 42, 0.38);
 }
 
 .loss-stat strong {
@@ -423,6 +452,18 @@ select {
 .ghost:hover {
   color: var(--brand-strong);
   background: var(--soft-brand);
+}
+
+.account-topbar .ghost {
+  flex: 0 0 auto;
+  border-color: rgba(247, 255, 253, 0.2);
+  color: #f7fffd;
+  background: transparent;
+}
+
+.account-topbar .ghost:hover {
+  color: #071615;
+  background: #7af2e5;
 }
 
 .danger-button {
@@ -1088,6 +1129,7 @@ button svg,
 
   .workspace {
     grid-column: auto;
+    padding: 0 28px 28px;
   }
 
   .nav {
@@ -1130,7 +1172,14 @@ button svg,
 
 @media (max-width: 640px) {
   .workspace {
-    padding: 18px;
+    padding: 0 18px 18px;
+  }
+
+  .account-topbar {
+    margin-right: -18px;
+    margin-left: -18px;
+    padding-right: 18px;
+    padding-left: 18px;
   }
 
   .login-panel {
