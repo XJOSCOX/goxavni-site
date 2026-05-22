@@ -340,11 +340,7 @@ function Bookkeeper() {
       </aside>
 
       <section className="workspace">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">Supabase ledger</p>
-            <h1>{view.charAt(0).toUpperCase() + view.slice(1)}</h1>
-          </div>
+        <section className="account-topbar" aria-label="Account summary">
           <div className="session">
             <div className="user-chip" aria-label="Current user">
               <span className="avatar" aria-hidden="true">{initials(user.name)}</span>
@@ -354,6 +350,13 @@ function Bookkeeper() {
             <div className="topbar-stat"><span>Revenue</span><strong>{money.format(data.summary.income || 0)}</strong></div>
             <div className={`topbar-stat ${net >= 0 ? "profit-stat" : "loss-stat"}`}><span>{netLabel}</span><strong>{money.format(Math.abs(net))}</strong></div>
             <button className="ghost" type="button" onClick={() => logout()}><LogOut size={16} /> Sign out</button>
+          </div>
+        </section>
+
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">Supabase ledger</p>
+            <h1>{view.charAt(0).toUpperCase() + view.slice(1)}</h1>
           </div>
         </header>
 

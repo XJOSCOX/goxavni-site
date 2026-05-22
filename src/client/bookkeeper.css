@@ -310,6 +310,14 @@ select {
   padding: 28px;
 }
 
+.account-topbar {
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -321,9 +329,11 @@ select {
 .session {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  flex-wrap: nowrap;
   gap: 12px;
+  width: 100%;
+  overflow-x: auto;
   color: var(--muted);
   font-size: 14px;
   font-weight: 700;
@@ -340,6 +350,7 @@ select {
 }
 
 .user-chip {
+  flex: 1 0 220px;
   gap: 10px;
   padding: 5px 12px 5px 6px;
 }
@@ -379,6 +390,7 @@ select {
 }
 
 .topbar-stat {
+  flex: 0 0 auto;
   min-width: 98px;
   justify-content: center;
   padding: 8px 12px;
