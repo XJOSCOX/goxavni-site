@@ -328,7 +328,7 @@ function Bookkeeper() {
           </section>
         )}
 
-        {view === "dashboard" && <Dashboard data={data} setView={setView} />}
+        {view === "dashboard" && <Dashboard data={data} setView={setView} canManage={canManage} />}
         {view === "smart" && <Smart data={data} setData={setData} setMessage={setMessage} />}
         {view === "calendar" && <Calendar data={data} setData={setData} setMessage={setMessage} />}
         {view === "reminders" && <Reminders data={data} {...editTools} />}
