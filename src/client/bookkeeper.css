@@ -312,9 +312,10 @@ select {
 
 .account-topbar {
   margin: 0 -28px 24px;
-  padding: 12px 28px;
+  padding: 10px 28px;
   color: #f7fffd;
   background: var(--sidebar);
+  box-shadow: 0 1px 0 rgba(247, 255, 253, 0.08);
 }
 
 .topbar {
@@ -328,9 +329,9 @@ select {
 .session {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   flex-wrap: nowrap;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
   overflow-x: auto;
   color: var(--muted);
@@ -344,7 +345,7 @@ select {
 
 .user-chip,
 .topbar-stat {
-  min-height: 42px;
+  min-height: 38px;
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--line);
@@ -359,14 +360,16 @@ select {
 }
 
 .user-chip {
-  flex: 1 0 220px;
-  gap: 10px;
-  padding: 5px 12px 5px 6px;
+  flex: 0 0 auto;
+  margin-right: auto;
+  gap: 9px;
+  min-width: 210px;
+  padding: 4px 12px 4px 5px;
 }
 
 .avatar {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
@@ -410,9 +413,9 @@ select {
 
 .topbar-stat {
   flex: 0 0 auto;
-  min-width: 98px;
+  min-width: 86px;
   justify-content: center;
-  padding: 8px 12px;
+  padding: 7px 10px;
 }
 
 .profit-stat {
