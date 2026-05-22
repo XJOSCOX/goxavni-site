@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 export const rootDir = path.resolve(__dirname, "..", "..");
 export const distDir = path.join(rootDir, "dist");
 export const port = Number(process.env.PORT || 3000);
+export const documentBucket = process.env.SUPABASE_DOCUMENT_BUCKET || "bookkeeper-documents";
 export const authCookieName = "goxavni_bookkeeper";
 export const sessionMaxAgeMs = 1000 * 60 * 30;
 export const roles = ["owner", "manager", "member"];

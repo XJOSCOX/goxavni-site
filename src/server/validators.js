@@ -268,6 +268,36 @@ export function validateDocument(body) {
   };
 }
 
+export function validateDocumentUpload(body) {
+  const base = validateDocument({ ...body, url: body.url || "https://uploaded.local/file" });
+  if (base.error) return base;
+  const filename = String(body.filename || "").trim();
+  const contentType = String(body.contentType || "application/octet-stream").trim();
+  const contentBase64 = String(body.contentBase64 || "").trim();
+
+  if (!filename) return { error: "Filename is required." };
+  if (!contentBase64) return { error: "File content is required." };
+
+  return {
+    value: {
+      ...base.value,
+      filename,
+      contentType,
+      contentBase64
+    }
+  };
+}
+
+export function validateMonthlyClose(body) {
+  const period = String(body.period || "").trim();
+  const closedOn = String(body.closedOn || "").trim();
+
+  if (!/^\d{4}-\d{2}$/.test(period)) return { error: "Close period must be YYYY-MM." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(closedOn)) return { error: "Close date is required." };
+
+  return { value: { period, closedOn } };
+}
+
 export async function validateTransaction(body, store) {
   const type = String(body.type || "").trim();
   const amountCents = centsFromInput(body.amount);

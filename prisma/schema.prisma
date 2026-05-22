@@ -23,6 +23,7 @@ model BookkeeperUser {
   createdPayments   MemberPayment[] @relation("PaymentCreator")
   documents          Document[]
   invoices           Invoice[]
+  monthlyCloses      MonthlyClose[]
   reminders          Reminder[]
   subscriptions      Subscription[]
   transactions      Transaction[]
@@ -212,7 +213,9 @@ model Invoice {
 model Document {
   id         BigInt         @id @default(autoincrement())
   label      String
-  url        String
+  url        String?
+  storageBucket String?     @map("storage_bucket")
+  storagePath   String?     @map("storage_path")
   entityType String         @map("entity_type")
   entityId   String         @map("entity_id")
   notes      String?
@@ -222,6 +225,18 @@ model Document {
 
   @@index([entityType, entityId])
   @@map("documents")
+}
+
+model MonthlyClose {
+  id        BigInt         @id @default(autoincrement())
+  period    String         @unique
+  closedOn  DateTime       @map("closed_on") @db.Date
+  summary   Json
+  createdBy String         @map("created_by") @db.Uuid
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  creator   BookkeeperUser @relation(fields: [createdBy], references: [id])
+
+  @@map("monthly_closes")
 }
 
 model Reminder {

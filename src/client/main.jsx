@@ -69,7 +69,10 @@ function Bookkeeper() {
       timesheets: []
     },
     users: [],
-    report: { income: 0, expenses: 0, net: 0, categories: [] }
+    report: { income: 0, expenses: 0, net: 0, categories: [] },
+    balanceSheet: { assets: [], liabilities: [], equity: [], totals: {} },
+    cashFlow: { inflows: 0, outflows: 0, net: 0, rows: [] },
+    monthlyCloses: []
   });
 
   const canOwn = user?.role === "owner";
@@ -120,17 +123,23 @@ function Bookkeeper() {
         calendar: calendar.calendar,
         smart: smart.smart,
         users: [],
-        report: { income: 0, expenses: 0, net: 0, categories: [] }
+        report: { income: 0, expenses: 0, net: 0, categories: [] },
+        balanceSheet: { assets: [], liabilities: [], equity: [], totals: {} },
+        cashFlow: { inflows: 0, outflows: 0, net: 0, rows: [] },
+        monthlyCloses: []
       };
       if (["owner", "manager"].includes(currentUser?.role)) {
-        const [users, payments, subscriptions, contacts, invoices, documents, report] = await Promise.all([
+        const [users, payments, subscriptions, contacts, invoices, documents, report, balanceSheet, cashFlow, monthlyCloses] = await Promise.all([
           api("/api/users"),
           api("/api/member-payments"),
           api("/api/subscriptions"),
           api("/api/contacts"),
           api("/api/invoices"),
           api("/api/documents"),
-          api("/api/reports/profit-loss")
+          api("/api/reports/profit-loss"),
+          api("/api/reports/balance-sheet"),
+          api("/api/reports/cash-flow"),
+          api("/api/monthly-closes")
         ]);
         next.users = users.users;
         next.payments = payments.payments;
@@ -139,6 +148,9 @@ function Bookkeeper() {
         next.invoices = invoices.invoices;
         next.documents = documents.documents;
         next.report = report.report;
+        next.balanceSheet = balanceSheet.report;
+        next.cashFlow = cashFlow.report;
+        next.monthlyCloses = monthlyCloses.monthlyCloses;
       }
       if (currentUser?.role === "owner") {
         const auditLogs = await api("/api/audit-logs");
@@ -314,9 +326,9 @@ function Bookkeeper() {
         {view === "payments" && <Payments data={data} activeMembers={activeMembers} assetAccounts={assetAccounts} expenseAccounts={expenseAccounts} canOwn={canOwn} {...editTools} />}
         {view === "contacts" && <Contacts data={data} {...editTools} />}
         {view === "invoices" && <Invoices data={data} customers={customers} assetAccounts={assetAccounts} revenueAccounts={revenueAccounts} refreshData={loadCore} {...editTools} />}
-        {view === "documents" && <Documents data={data} {...editTools} />}
+        {view === "documents" && <Documents data={data} refreshData={loadCore} {...editTools} />}
         {view === "subscriptions" && <Subscriptions data={data} assetAccounts={assetAccounts} expenseAccounts={expenseAccounts} refreshData={loadCore} {...editTools} />}
-        {view === "reports" && <Reports data={data} setData={setData} setMessage={setMessage} />}
+        {view === "reports" && <Reports data={data} setData={setData} setMessage={setMessage} refreshData={loadCore} canOwn={canOwn} />}
         {view === "accounts" && <Accounts data={data} canOwn={canOwn} {...editTools} />}
         {view === "users" && <Users user={user} data={data} roleOptions={roleOptions} {...editTools} />}
         {view === "audit" && <AuditLogs data={data} />}

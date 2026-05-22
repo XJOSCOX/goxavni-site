@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { defaultAccounts, hasSupabaseConfig, roles } from "../config.js";
+import { defaultAccounts, documentBucket, hasSupabaseConfig, roles } from "../config.js";
 import { canManageRole, cleanAccount, formatMoney, normalizeSupabaseError } from "../utils.js";
 import { codeHash, roleFromSignupCode, signupCodesFromEnv } from "../validators.js";
 
@@ -26,6 +26,15 @@ function addRecurrence(dateValue, every, unit) {
   if (unit === "month") next.setUTCMonth(next.getUTCMonth() + every);
   if (unit === "year") next.setUTCFullYear(next.getUTCFullYear() + every);
   return dateString(next);
+}
+
+function lastDayOfPeriod(period) {
+  const [year, month] = period.split("-").map(Number);
+  return dateString(new Date(Date.UTC(year, month, 0)));
+}
+
+function safeStorageName(name) {
+  return String(name || "document").replace(/[^a-z0-9._-]/gi, "_").slice(0, 120);
 }
 
 function defaultWindow() {
@@ -1169,19 +1178,32 @@ export class SupabaseStore {
     this.ensureConfigured();
     const { data, error } = await this.admin
       .from("documents")
-      .select("id, label, url, entity_type, entity_id, notes, created_at, creator:created_by(name)")
+      .select("id, label, url, storage_bucket, storage_path, entity_type, entity_id, notes, created_at, creator:created_by(name)")
       .order("created_at", { ascending: false })
       .limit(300);
     if (error) throw new Error(normalizeSupabaseError(error));
-    return data.map((document) => ({
-      id: document.id,
-      label: document.label,
-      url: document.url,
-      entityType: document.entity_type,
-      entityId: document.entity_id,
-      notes: document.notes,
-      createdAt: document.created_at,
-      createdBy: document.creator?.name || ""
+
+    return Promise.all(data.map(async (document) => {
+      let url = document.url || "";
+      if (!url && document.storage_bucket && document.storage_path) {
+        const { data: signed, error: signedError } = await this.admin.storage
+          .from(document.storage_bucket)
+          .createSignedUrl(document.storage_path, 60 * 60);
+        if (!signedError) url = signed?.signedUrl || "";
+      }
+
+      return {
+        id: document.id,
+        label: document.label,
+        url,
+        storageBucket: document.storage_bucket,
+        storagePath: document.storage_path,
+        entityType: document.entity_type,
+        entityId: document.entity_id,
+        notes: document.notes,
+        createdAt: document.created_at,
+        createdBy: document.creator?.name || ""
+      };
     }));
   }
 
@@ -1192,6 +1214,8 @@ export class SupabaseStore {
       .insert({
         label: document.label,
         url: document.url,
+        storage_bucket: document.storageBucket || null,
+        storage_path: document.storagePath || null,
         entity_type: document.entityType,
         entity_id: document.entityId,
         notes: document.notes,
@@ -1201,6 +1225,36 @@ export class SupabaseStore {
       .single();
     if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
     return data.id;
+  }
+
+  async uploadDocument(document, userId) {
+    this.ensureConfigured();
+    const bytes = Buffer.from(document.contentBase64, "base64");
+    if (!bytes.length) throw Object.assign(new Error("Uploaded file is empty."), { status: 400 });
+    if (bytes.length > 6 * 1024 * 1024) {
+      throw Object.assign(new Error("File must be 6 MB or smaller."), { status: 400 });
+    }
+
+    const path = `${document.entityType}/${document.entityId}/${Date.now()}-${safeStorageName(document.filename)}`;
+    const { error: uploadError } = await this.admin.storage
+      .from(documentBucket)
+      .upload(path, bytes, {
+        contentType: document.contentType,
+        upsert: false
+      });
+    if (uploadError) {
+      throw Object.assign(new Error(uploadError.message), { status: 400 });
+    }
+
+    return this.createDocument({
+      label: document.label,
+      url: null,
+      storageBucket: documentBucket,
+      storagePath: path,
+      entityType: document.entityType,
+      entityId: document.entityId,
+      notes: document.notes
+    }, userId);
   }
 
   async listReminders({ from, to, includeDone = true, actor } = {}) {
@@ -1492,5 +1546,185 @@ export class SupabaseStore {
         .sort((a, b) => b.amountCents - a.amountCents)
         .map((category) => ({ ...category, amount: formatMoney(category.amountCents) }))
     };
+  }
+
+  async balanceSheetReport({ asOf } = {}) {
+    this.ensureConfigured();
+    const [{ data: accounts, error: accountsError }, transactionsResult] = await Promise.all([
+      this.admin
+        .from("accounts")
+        .select("id, code, name, type, active")
+        .in("type", ["asset", "liability", "equity"])
+        .order("code", { ascending: true }),
+      (() => {
+        let query = this.admin
+          .from("transactions")
+          .select("occurred_on, type, amount_cents, payment:payment_account_id(id, code, name, type), category:category_account_id(id, code, name, type)")
+          .order("occurred_on", { ascending: true });
+        if (asOf) query = query.lte("occurred_on", asOf);
+        return query;
+      })()
+    ]);
+    if (accountsError) throw new Error(normalizeSupabaseError(accountsError));
+    if (transactionsResult.error) throw new Error(normalizeSupabaseError(transactionsResult.error));
+
+    const balances = new Map(accounts.map((account) => [String(account.id), {
+      id: account.id,
+      code: account.code,
+      name: account.name,
+      type: account.type,
+      active: account.active,
+      amountCents: 0
+    }]));
+
+    let incomeCents = 0;
+    let expenseCents = 0;
+    for (const transaction of transactionsResult.data) {
+      const amount = Number(transaction.amount_cents || 0);
+      if (transaction.type === "income") incomeCents += amount;
+      if (transaction.type === "expense") expenseCents += amount;
+
+      const paymentAccount = transaction.payment;
+      const paymentBalance = paymentAccount ? balances.get(String(paymentAccount.id)) : null;
+      if (paymentBalance) {
+        if (paymentAccount.type === "asset") {
+          paymentBalance.amountCents += transaction.type === "income" ? amount : -amount;
+        }
+        if (paymentAccount.type === "liability") {
+          paymentBalance.amountCents += transaction.type === "expense" ? amount : -amount;
+        }
+        if (paymentAccount.type === "equity") {
+          paymentBalance.amountCents += transaction.type === "income" ? amount : -amount;
+        }
+      }
+    }
+
+    const toRows = (type) => [...balances.values()]
+      .filter((account) => account.type === type)
+      .sort((a, b) => String(a.code).localeCompare(String(b.code)))
+      .map((account) => ({ ...account, amount: formatMoney(account.amountCents) }));
+    const assets = toRows("asset");
+    const liabilities = toRows("liability");
+    const equityAccounts = toRows("equity");
+    const retainedEarnings = {
+      id: "retained-earnings",
+      code: "3999",
+      name: "Retained earnings",
+      type: "equity",
+      active: true,
+      amountCents: incomeCents - expenseCents,
+      amount: formatMoney(incomeCents - expenseCents)
+    };
+    const equity = [...equityAccounts, retainedEarnings];
+    const assetCents = assets.reduce((total, row) => total + row.amountCents, 0);
+    const liabilityCents = liabilities.reduce((total, row) => total + row.amountCents, 0);
+    const equityCents = equity.reduce((total, row) => total + row.amountCents, 0);
+
+    return {
+      asOf,
+      assets,
+      liabilities,
+      equity,
+      totals: {
+        assets: formatMoney(assetCents),
+        liabilities: formatMoney(liabilityCents),
+        equity: formatMoney(equityCents),
+        liabilitiesAndEquity: formatMoney(liabilityCents + equityCents)
+      }
+    };
+  }
+
+  async cashFlowReport({ from, to } = {}) {
+    this.ensureConfigured();
+    let query = this.admin
+      .from("transactions")
+      .select("occurred_on, type, amount_cents, category:category_account_id(name)")
+      .order("occurred_on", { ascending: true });
+    if (from) query = query.gte("occurred_on", from);
+    if (to) query = query.lte("occurred_on", to);
+    const { data, error } = await query;
+    if (error) throw new Error(normalizeSupabaseError(error));
+
+    const groups = new Map();
+    const totals = data.reduce(
+      (acc, transaction) => {
+        const amount = Number(transaction.amount_cents || 0);
+        if (transaction.type === "income") acc.inflowCents += amount;
+        if (transaction.type === "expense") acc.outflowCents += amount;
+        const month = transaction.occurred_on.slice(0, 7);
+        const category = transaction.category?.name || "Uncategorized";
+        const key = `${month}:${transaction.type}:${category}`;
+        const current = groups.get(key) || {
+          month,
+          type: transaction.type,
+          category,
+          inflowCents: 0,
+          outflowCents: 0
+        };
+        if (transaction.type === "income") current.inflowCents += amount;
+        if (transaction.type === "expense") current.outflowCents += amount;
+        groups.set(key, current);
+        return acc;
+      },
+      { inflowCents: 0, outflowCents: 0 }
+    );
+
+    return {
+      from,
+      to,
+      inflows: formatMoney(totals.inflowCents),
+      outflows: formatMoney(totals.outflowCents),
+      net: formatMoney(totals.inflowCents - totals.outflowCents),
+      rows: [...groups.values()]
+        .sort((a, b) => a.month.localeCompare(b.month) || a.type.localeCompare(b.type) || a.category.localeCompare(b.category))
+        .map((row) => ({
+          ...row,
+          inflow: formatMoney(row.inflowCents),
+          outflow: formatMoney(row.outflowCents),
+          net: formatMoney(row.inflowCents - row.outflowCents)
+        }))
+    };
+  }
+
+  async listMonthlyCloses() {
+    this.ensureConfigured();
+    const { data, error } = await this.admin
+      .from("monthly_closes")
+      .select("id, period, closed_on, summary, created_at, creator:created_by(name)")
+      .order("period", { ascending: false })
+      .limit(60);
+    if (error) throw new Error(normalizeSupabaseError(error));
+    return data.map((close) => ({
+      id: close.id,
+      period: close.period,
+      closedOn: close.closed_on,
+      summary: close.summary,
+      createdAt: close.created_at,
+      createdBy: close.creator?.name || ""
+    }));
+  }
+
+  async createMonthlyClose(close, userId) {
+    this.ensureConfigured();
+    const from = `${close.period}-01`;
+    const to = lastDayOfPeriod(close.period);
+    const [profitLoss, balanceSheet, cashFlow] = await Promise.all([
+      this.profitLossReport({ from, to }),
+      this.balanceSheetReport({ asOf: to }),
+      this.cashFlowReport({ from, to })
+    ]);
+    const summary = { from, to, profitLoss, balanceSheet, cashFlow };
+    const { data, error } = await this.admin
+      .from("monthly_closes")
+      .upsert({
+        period: close.period,
+        closed_on: close.closedOn,
+        summary,
+        created_by: userId
+      }, { onConflict: "period" })
+      .select("period")
+      .single();
+    if (error) throw Object.assign(new Error(normalizeSupabaseError(error)), { status: 400 });
+    return data.period;
   }
 }

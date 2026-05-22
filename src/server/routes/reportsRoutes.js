@@ -1,10 +1,30 @@
 import { dateRangeFromQuery, sendCsv } from "../utils.js";
 
+function balanceSheetQuery(query) {
+  const asOf = String(query.asOf || "").trim();
+  return { asOf: /^\d{4}-\d{2}-\d{2}$/.test(asOf) ? asOf : null };
+}
 
 export function registerReportsRoutes(app, { store, requireAuth, requireRole }) {
   app.get("/api/reports/profit-loss", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
     try {
       res.json({ report: await store.profitLossReport(dateRangeFromQuery(req.query)) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/reports/balance-sheet", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      res.json({ report: await store.balanceSheetReport(balanceSheetQuery(req.query)) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/reports/cash-flow", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      res.json({ report: await store.cashFlowReport(dateRangeFromQuery(req.query)) });
     } catch (error) {
       next(error);
     }
@@ -25,6 +45,43 @@ export function registerReportsRoutes(app, { store, requireAuth, requireRole }) 
           tx.reference || "",
           tx.amount
         ])
+      ]);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/reports/balance-sheet.csv", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const report = await store.balanceSheetReport(balanceSheetQuery(req.query));
+      const rows = [
+        ["Section", "Code", "Account", "Amount"],
+        ...report.assets.map((row) => ["Assets", row.code, row.name, row.amount]),
+        ...report.liabilities.map((row) => ["Liabilities", row.code, row.name, row.amount]),
+        ...report.equity.map((row) => ["Equity", row.code, row.name, row.amount]),
+        ["Total", "", "Assets", report.totals.assets],
+        ["Total", "", "Liabilities and Equity", report.totals.liabilitiesAndEquity]
+      ];
+      sendCsv(res, "goxavni-balance-sheet.csv", rows);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/reports/cash-flow.csv", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
+    try {
+      const report = await store.cashFlowReport(dateRangeFromQuery(req.query));
+      sendCsv(res, "goxavni-cash-flow.csv", [
+        ["Month", "Type", "Category", "Inflow", "Outflow", "Net"],
+        ...report.rows.map((row) => [
+          row.month,
+          row.type,
+          row.category,
+          row.inflow,
+          row.outflow,
+          row.net
+        ]),
+        ["Total", "", "", report.inflows, report.outflows, report.net]
       ]);
     } catch (error) {
       next(error);

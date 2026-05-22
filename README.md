@@ -23,6 +23,8 @@ Open `http://localhost:3001/bookkeeper`.
 
 Fill in `.env` before using the app. Set `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
 `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `DIRECT_URL`, and `SESSION_SECRET`.
+For uploaded receipts and files, set `SUPABASE_DOCUMENT_BUCKET` or use the
+default `bookkeeper-documents`.
 
 The sign-up page uses role-specific codes from `.env`:
 
@@ -38,9 +40,10 @@ the user's role automatically.
 1. Create a Supabase project.
 2. Copy your project URL, anon key, service role key, and Postgres connection strings into `.env`.
 3. Set a strong `SESSION_SECRET` and private role signup codes.
-4. Update `prisma/schema.prisma` for database changes.
-5. Run `npx prisma migrate dev --name update_name`.
-6. Restart `npm run dev`.
+4. Create a private Supabase Storage bucket named `bookkeeper-documents`, or match your `.env` bucket name.
+5. Update `prisma/schema.prisma` for database changes.
+6. Run `npx prisma migrate dev --name update_name`.
+7. Restart `npm run dev`.
 
 Never put the service role key in browser code. This app only reads it on the server.
 
@@ -78,8 +81,9 @@ Audit section.
 - Important create/update/approval actions are written to `audit_logs`.
 - Customers and vendors are tracked in Contacts.
 - Invoices can be created, exported, and marked paid. Marking paid creates the matching income transaction.
-- Document links can be attached to records for receipts, contracts, and supporting files.
+- Document links and Supabase Storage uploads can be attached to records for receipts, contracts, and supporting files.
 - Active subscriptions can be posted into expense transactions and advanced to the next due date.
+- Reports include profit and loss, balance sheet, cash flow, CSV exports, and owner-only monthly close snapshots.
 
 ## Deployment note
 
