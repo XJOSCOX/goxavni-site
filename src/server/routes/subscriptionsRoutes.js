@@ -38,7 +38,7 @@ export function registerSubscriptionsRoutes(app, { store, requireAuth, requireRo
   app.post("/api/subscriptions/:id/post", requireAuth, requireRole(["owner", "manager"]), async (req, res, next) => {
     try {
       const result = await store.postSubscription(Number(req.params.id), req.user.id);
-      await store.createAuditLog({ actorId: req.user.id, action: "post", entityType: "subscription", entityId: req.params.id, summary: `Transaction ${result.transactionId}` });
+      await store.createAuditLog({ actorId: req.user.id, action: "mark_paid", entityType: "subscription", entityId: req.params.id, summary: `Transaction ${result.transactionId}` });
       return res.json(result);
     } catch (error) {
       return next(error);
