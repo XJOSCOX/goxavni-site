@@ -321,10 +321,85 @@ select {
 .session {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 12px;
   color: var(--muted);
   font-size: 14px;
   font-weight: 700;
+}
+
+.user-chip,
+.topbar-stat {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.user-chip {
+  gap: 10px;
+  padding: 5px 12px 5px 6px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #f7fffd;
+  background: var(--brand);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.user-chip span:last-child,
+.topbar-stat {
+  display: grid;
+  gap: 2px;
+}
+
+.user-chip strong,
+.topbar-stat strong {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.user-chip small,
+.topbar-stat span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.topbar-stat {
+  min-width: 98px;
+  justify-content: center;
+  padding: 8px 12px;
+}
+
+.profit-stat {
+  border-color: #b9dfc8;
+  background: #f0fbf4;
+}
+
+.profit-stat strong {
+  color: var(--good);
+}
+
+.loss-stat {
+  border-color: #ebc1c1;
+  background: #fff5f5;
+}
+
+.loss-stat strong {
+  color: var(--danger);
 }
 
 .ghost {
@@ -1008,10 +1083,13 @@ button svg,
     margin-top: 18px;
   }
 
-  .topbar,
-  .session {
+  .topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .session {
+    justify-content: flex-start;
   }
 
   .metric-grid,

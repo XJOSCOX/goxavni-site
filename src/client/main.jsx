@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { LogOut } from "lucide-react";
 import "../../styles.css";
 import "./bookkeeper.css";
-import { api, messageForError, payload } from "./api.js";
+import { api, messageForError, money, payload } from "./api.js";
 import { Auth } from "./Auth.jsx";
 import { ErrorBoundary } from "./components.jsx";
 import { Home } from "./Home.jsx";
@@ -28,6 +28,19 @@ import { Users } from "./views/Users.jsx";
 const warningMs = 20 * 60 * 1000;
 const timeoutMs = 30 * 60 * 1000;
 
+function initials(name = "") {
+  return String(name)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "GX";
+}
+
+function formatClock(date) {
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 function Bookkeeper() {
   const [user, setUser] = useState(null);
   const [provider, setProvider] = useState("supabase");
@@ -38,6 +51,7 @@ function Bookkeeper() {
   const [idleWarning, setIdleWarning] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [now, setNow] = useState(() => new Date());
   const [data, setData] = useState({
     accounts: [],
     transactions: [],
@@ -86,6 +100,8 @@ function Bookkeeper() {
   const assetAccounts = data.accounts.filter((account) => account.active && account.type === "asset");
   const revenueAccounts = data.accounts.filter((account) => account.active && account.type === "revenue");
   const expenseAccounts = data.accounts.filter((account) => account.active && account.type === "expense");
+  const net = Number(data.summary.net || 0);
+  const netLabel = net >= 0 ? "Profit" : "Loss";
   const roleOptions = useMemo(
     () => (user?.role === "manager" ? [["member", "Member"]] : [["owner", "Owner"], ["manager", "Manager"], ["member", "Member"]]),
     [user?.role]
@@ -262,6 +278,11 @@ function Bookkeeper() {
   }, []);
 
   useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (!user) return undefined;
     let warningTimer;
     let logoutTimer;
@@ -325,7 +346,13 @@ function Bookkeeper() {
             <h1>{view.charAt(0).toUpperCase() + view.slice(1)}</h1>
           </div>
           <div className="session">
-            <span>{user.name} - {user.role}</span>
+            <div className="user-chip" aria-label="Current user">
+              <span className="avatar" aria-hidden="true">{initials(user.name)}</span>
+              <span><strong>{user.name}</strong><small>{user.role}</small></span>
+            </div>
+            <div className="topbar-stat"><span>Time</span><strong>{formatClock(now)}</strong></div>
+            <div className="topbar-stat"><span>Revenue</span><strong>{money.format(data.summary.income || 0)}</strong></div>
+            <div className={`topbar-stat ${net >= 0 ? "profit-stat" : "loss-stat"}`}><span>{netLabel}</span><strong>{money.format(Math.abs(net))}</strong></div>
             <button className="ghost" type="button" onClick={() => logout()}><LogOut size={16} /> Sign out</button>
           </div>
         </header>
